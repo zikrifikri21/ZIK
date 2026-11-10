@@ -12,7 +12,7 @@ const ICON = {
 };
 
 let cfg = await window.zik.settings();
-const m = Mascot.create({ size: cfg.size, floor: 4, fps: 24, idleFps: 15, sleepAfter: 60000, gravity: cfg.gravity, draggable: cfg.drag, followPointer: cfg.follow,
+const m = Mascot.create({ size: cfg.size, floor: 4, fps: 30, idleFps: 24, sleepAfter: 60000, gravity: cfg.gravity, draggable: cfg.drag, followPointer: cfg.follow,
   onTap: () => { if (thirsty) { const ml = cfg.water.cup; drink(ml); thanks(ml); } }   // tap after a reminder = I drank
 });
 // "Maaciiw <heart> +250 ml" (icon in the middle of the bubble)

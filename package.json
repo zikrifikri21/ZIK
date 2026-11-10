@@ -1,7 +1,7 @@
 {
   "name": "zik",
   "productName": "ZIK",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Maskot Bulu yang menyanyikan lirik dari lagu yang sedang diputar",
   "scripts": {
     "start": "tauri dev",
