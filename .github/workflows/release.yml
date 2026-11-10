@@ -1,0 +1,28 @@
+# Push a tag like v0.1.0 → builds the Windows installer (.exe) and macOS installers (.dmg, Intel + Apple Silicon)
+# and attaches them to the GitHub Release for that tag.
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx electron-builder --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false   # unsigned build (no Apple/Windows certificate)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/*.dmg

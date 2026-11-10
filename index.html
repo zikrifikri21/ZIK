@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
+<title>ZIK</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  .mb-lyric { display: none !important; }   /* replaced by the scrolling stack below */
+
+  /* lyric stack: current line centered, previous/next faded, scrolls up on each new line */
+  .zl { position: absolute; left: 50%; bottom: 92%; width: 340px; height: 7.5em; margin-left: -170px;
+        overflow: hidden; pointer-events: none; text-align: center; font: 700 16px/1.35 system-ui, "Segoe UI", sans-serif;
+        -webkit-mask-image: linear-gradient(transparent, #000 28%, #000 72%, transparent); transition: opacity .2s; }
+  .zl .in { transition: transform .55s cubic-bezier(.2, .8, .2, 1); }
+  .zl p { margin: 0; padding: 4px 6px; opacity: 0; transform: scale(.88); transition: opacity .55s, transform .55s; }
+  .zl span { background: rgba(16, 28, 60, .9); color: #fff; padding: 4px 12px; border-radius: 14px;
+             box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .zl p.on { opacity: 1; transform: none; }
+  .zl p.near { opacity: .4; }
+  .zl.solo p.near { opacity: 0; }
+  .saying .zl { opacity: 0; }
+
+  /* rage: body turns red (direct child svg only, so the glass and bubble icons keep their colors) */
+  .mascot-bulu > svg { transition: filter .8s; }
+  .mascot-bulu.red > svg { filter: hue-rotate(150deg) saturate(1.5) brightness(.95); }
+  .mascot-bulu .mb-bubble .hi svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; margin: 0 4px; color: #ff4d7d; }
+
+  /* offered water glass (inside the mascot element, sized relative to it) */
+  .zg { position: absolute; bottom: 16%; width: 28%; aspect-ratio: 60 / 80; cursor: pointer; filter: drop-shadow(0 4px 6px rgba(10,42,102,.25));
+        animation: zg-in .5s cubic-bezier(.3,1.5,.5,1) both, zg-bob 2.2s ease-in-out .5s infinite; }
+  .zg[hidden] { display: none; }
+  .zg.l { right: 86%; --dir: 1; } .zg.r { left: 86%; --dir: -1; }
+  @keyframes zg-in { from { opacity: 0; transform: translateX(calc(var(--dir) * 60%)) scale(.5) rotate(0); } }
+  @keyframes zg-bob { 0%, 100% { transform: rotate(calc(var(--dir) * 6deg)) translateY(0); } 50% { transform: rotate(calc(var(--dir) * 2deg)) translateY(-6%); } }
+  .zg .wv { animation: zg-wave 1.4s linear infinite; }
+  @keyframes zg-wave { to { transform: translateX(-30px); } }
+  .zg .lv { transition: transform .9s ease-in; }
+  .zg.drink .lv { transform: translateY(54px); }
+  .zg.drink { animation: zg-out .45s ease-in .85s forwards; }
+  @keyframes zg-out { to { opacity: 0; transform: translateX(calc(var(--dir) * 50%)) scale(.6); } }
+
+  /* ---------- panels ---------- */
+  :root { --bg: #ffffff; --fg: #0f1b33; --mut: #6b7894; --line: #e5eaf2; --soft: #f2f5fa; --acc: #2f7fe0; --acc-fg: #fff; --track: #e3e9f3;
+          --shadow: 0 1px 2px rgba(15,27,51,.06), 0 16px 40px rgba(15,27,51,.20); }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161c27; --fg: #e8edf6; --mut: #8d99b0; --line: #273144; --soft: #1e2635; --acc: #5ba4ff; --acc-fg: #0b1220; --track: #2a3447;
+            --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.5); }
+  }
+  .zp { position: fixed; z-index: 2147483647; width: 304px; padding: 18px; box-sizing: border-box;
+        background: var(--bg); color: var(--fg); border: 1px solid var(--line); box-shadow: var(--shadow);
+        border-radius: 36px; corner-shape: squircle;
+        font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; animation: zp-in .18s cubic-bezier(.2,.8,.2,1); }
+  .zp[hidden] { display: none; }
+  .zp.sm { width: 280px; }
+  @keyframes zp-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+  .zp header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .zp h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; flex: 1; }
+  .zp .ico { width: 28px; height: 28px; display: grid; place-items: center; background: var(--soft); border-radius: 11px; corner-shape: squircle; font-size: 15px; }
+  .zp button { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 0; cursor: pointer;
+               border-radius: 14px; corner-shape: squircle; padding: 9px 14px; transition: filter .12s, transform .08s; }
+  .zp button:hover { filter: brightness(.96); } .zp button:active { transform: scale(.97); }
+  .zp button:focus-visible, .zp input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+  .zp button, .zp .ico { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .zp svg { width: 14px; height: 14px; flex: none; }
+  .zp .ico svg { width: 15px; height: 15px; }
+  .zp .x svg { width: 13px; height: 13px; }
+  .zp .ico { color: var(--acc); }
+  /* .mascot-bulu prefix: beats mascot.js's own `.mascot-bulu svg { width: 100% }` */
+  .mascot-bulu .mb-bubble svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; color: #2f7fe0; }
+  .mascot-bulu .zl span svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; }
+  .zp .x { width: 28px; height: 28px; padding: 0; border-radius: 50%; color: var(--mut); background: transparent; font-size: 14px; }
+  .zp .x:hover { background: var(--soft); color: var(--fg); filter: none; }
+  .zp .primary { background: var(--acc); color: var(--acc-fg); flex: 1; }
+  .zp input[type=range] { flex: 1; accent-color: var(--acc); }
+  .zp output { min-width: 52px; text-align: right; font-variant-numeric: tabular-nums; color: var(--mut); font-weight: 600; }
+  .zp .row { display: flex; align-items: center; gap: 12px; }
+
+  .hero { display: flex; align-items: baseline; justify-content: space-between; }
+  .hero b { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .hero small { color: var(--mut); font-size: 13px; margin-left: 4px; }
+  .pill { font-weight: 650; font-size: 12px; color: var(--acc); background: var(--soft); padding: 3px 9px; border-radius: 999px; }
+  .bar { height: 10px; background: var(--track); border-radius: 999px; overflow: hidden; margin: 10px 0 14px; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5bb8ff, var(--acc)); border-radius: inherit; transition: width .4s cubic-bezier(.2,.8,.2,1); }
+  .btns { display: flex; gap: 8px; }
+  .btns .ghost { width: 46px; }
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; height: 74px; margin: 16px 0 4px; padding: 10px 10px 0;
+          background: var(--soft); border-radius: 18px; corner-shape: squircle; }
+  .week div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-height: 0; }
+  .week i { width: 100%; max-width: 16px; background: color-mix(in srgb, var(--acc) 32%, var(--soft)); border-radius: 6px; transition: height .4s; }
+  .week .today i { background: var(--acc); }
+  .week span { font-size: 10.5px; color: var(--mut); padding-bottom: 6px; }
+  .fields { margin-top: 12px; border-top: 1px solid var(--line); }
+  .fields label { white-space: nowrap; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .fields label:last-child { border-bottom: 0; padding-bottom: 0; }
+  .fields span { display: flex; align-items: center; gap: 6px; color: var(--mut); }
+  .fields input[type=number], .fields input[type=time] { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 1px solid transparent;
+        border-radius: 10px; corner-shape: squircle; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  .fields input[type=number] { width: 70px; }
+  .fields input[type=time] { width: 64px; color-scheme: light dark; }
+  .fields input::-webkit-calendar-picker-indicator, .fields input::-webkit-inner-spin-button { display: none; }
+  .fields input:hover { border-color: var(--line); }
+  .fields input[type=checkbox] { appearance: none; width: 38px; height: 22px; margin: 0; border-radius: 999px; background: var(--track); position: relative; cursor: pointer; transition: background .15s; }
+  .fields input[type=checkbox]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+  .fields input[type=checkbox]:checked { background: var(--acc); }
+  .fields input[type=checkbox]:checked::after { transform: translateX(16px); }
+</style>
+</head>
+<body>
+<section class="zp sm" id="pSize" hidden aria-label="Ukuran maskot">
+  <header><span class="ico" data-i="resize" aria-hidden="true"></span><h2>Ukuran maskot</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <div class="row"><input type="range" id="rng" min="80" max="400" step="5" aria-label="Ukuran maskot"><output id="rngOut"></output></div>
+</section>
+
+<section class="zp" id="pWater" hidden aria-label="Pengingat minum">
+  <header><span class="ico" data-i="droplet" aria-hidden="true"></span><h2>Pengingat minum</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <div class="hero"><div><b id="wNow">0</b><small>/ <span id="wGoal">2.000</span> ml</small></div><span class="pill" id="wPct">0%</span></div>
+  <div class="bar" role="presentation"><i id="wBar"></i></div>
+  <div class="btns"><button class="ghost" id="wMinus" type="button" data-i="minus"></button><button class="primary" id="wPlus" type="button" data-i="plus"><span id="wPlusT">250 ml</span></button></div>
+  <div class="week" id="wWeek" aria-label="7 hari terakhir"></div>
+  <div class="fields">
+    <label>Ukuran gelas <span><input type="number" id="fCup" min="50" max="2000" step="50"> ml</span></label>
+    <label>Target harian <span><input type="number" id="fGoal" min="250" max="10000" step="250"> ml</span></label>
+    <label>Ingatkan tiap <span><input type="number" id="fEvery" min="1" max="480" step="1"> mnt</span></label>
+    <label>Jam aktif <span><input type="time" id="fFrom" aria-label="Mulai"> – <input type="time" id="fTo" aria-label="Selesai"></span></label>
+    <label>Pengingat aktif <input type="checkbox" id="fOn" role="switch"></label>
+  </div>
+</section>
+<script src="mascot.js"></script>
+<script type="module" src="renderer.js"></script>
+</body>
+</html>

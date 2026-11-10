@@ -1,0 +1,62 @@
+{
+  "name": "zik",
+  "productName": "ZIK",
+  "version": "0.1.0",
+  "description": "Maskot Bulu yang menyanyikan lirik dari lagu yang sedang diputar",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node lyrics.js",
+    "dist": "electron-builder --publish never"
+  },
+  "build": {
+    "appId": "id.zik.app",
+    "productName": "ZIK",
+    "files": [
+      "*.js",
+      "*.html",
+      "*.ps1"
+    ],
+    "asarUnpack": [
+      "media.ps1"
+    ],
+    "artifactName": "ZIK-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.entertainment"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "allowScripts": {
+    "electron@45.2.3": true,
+    "electron-winstaller@5.4.0": true
+  },
+  "author": "zikrifikri21",
+  "repository": "https://github.com/zikrifikri21/ZIK"
+}
