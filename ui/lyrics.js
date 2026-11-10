@@ -21,13 +21,14 @@ async function find({ title, artist, dur }) {
       || list.find(r => r.syncedLyrics)?.syncedLyrics || null;
 }
 
-module.exports = { clean, find };
-
-if (require.main === module) {   // self-check: node lyrics.js
-  const a = require('assert');
-  a.deepStrictEqual(clean('Apricot Princess', 'Rex Orange County - Topic'), { title: 'Apricot Princess', artist: 'Rex Orange County' });
-  a.deepStrictEqual(clean('Tulus - Hati-Hati di Jalan (Official Music Video)', 'TULUS'), { title: 'Hati-Hati di Jalan', artist: 'Tulus' });
-  a.deepStrictEqual(clean('Coldplay - Yellow [Official Video] | HD', 'Coldplay'), { title: 'Yellow', artist: 'Coldplay' });
-  find({ title: 'Apricot Princess', artist: 'Rex Orange County - Topic', dur: 0 })
-    .then(l => { a.ok(l && l.includes('['), 'no lyrics from lrclib'); console.log('ok:', l.split('\n')[0]); });
-}
+if (typeof module === 'object') {   // Node: self-check (npm test); browser: global for zik.js
+  module.exports = { clean, find };
+  if (require.main === module) {
+    const a = require('assert');
+    a.deepStrictEqual(clean('Apricot Princess', 'Rex Orange County - Topic'), { title: 'Apricot Princess', artist: 'Rex Orange County' });
+    a.deepStrictEqual(clean('Tulus - Hati-Hati di Jalan (Official Music Video)', 'TULUS'), { title: 'Hati-Hati di Jalan', artist: 'Tulus' });
+    a.deepStrictEqual(clean('Coldplay - Yellow [Official Video] | HD', 'Coldplay'), { title: 'Yellow', artist: 'Coldplay' });
+    find({ title: 'Apricot Princess', artist: 'Rex Orange County - Topic', dur: 0 })
+      .then(l => { a.ok(l && l.includes('['), 'no lyrics from lrclib'); console.log('ok:', l.split('\n')[0]); });
+  }
+} else window.lyricsFind = find;

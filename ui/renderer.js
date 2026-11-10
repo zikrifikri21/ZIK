@@ -12,7 +12,7 @@ const ICON = {
 };
 
 let cfg = await window.zik.settings();
-const m = Mascot.create({ size: cfg.size, floor: 4, sleepAfter: 60000, gravity: cfg.gravity, draggable: cfg.drag, followPointer: cfg.follow,
+const m = Mascot.create({ size: cfg.size, floor: 4, fps: 24, idleFps: 15, sleepAfter: 60000, gravity: cfg.gravity, draggable: cfg.drag, followPointer: cfg.follow,
   onTap: () => { if (thirsty) { const ml = cfg.water.cup; drink(ml); thanks(ml); } }   // tap after a reminder = I drank
 });
 // "Maaciiw <heart> +250 ml" (icon in the middle of the bubble)
@@ -53,8 +53,7 @@ function show(L) {
   }));
 }
 
-(function tick() {
-  requestAnimationFrame(tick);
+setInterval(function tick() {   // 10×/s is plenty for line changes; per-frame layout reads cost CPU
   const r = m.el.getBoundingClientRect(), cx = r.left + r.width / 2;   // keep the 340px stack on-screen near edges
   zl.style.marginLeft = -170 + Math.min(0, innerWidth - 8 - (cx + 170)) + Math.max(0, 8 - (cx - 170)) + 'px';
   if (!lines || !lines.length || zl.hidden) return;
@@ -66,7 +65,7 @@ function show(L) {
   for (let j = 0; j < ps.length; j++) ps[j].className = j === i ? 'on' : (Math.abs(j - c) === 1 || (i < 0 && j === 0)) ? 'near' : '';
   const p = ps[c];
   inner.style.transform = `translateY(${zl.clientHeight / 2 - p.offsetTop - p.offsetHeight / 2}px)`;
-})();
+}, 100);
 
 window.zik.onSettings(apply);
 apply(cfg);
@@ -90,29 +89,14 @@ window.zik.onMedia(async (s) => {
   show(L); m.lyrics(L, now);                   // m.lyrics still drives mouth vowel shapes
 });
 
-// tempo + energy from what the speakers play (Windows loopback): bass hits → m.beat (sway/hop), loudness → mouth & hop height
-const BEAT = 1.35;   // calibration knob: bass must exceed its running average by this factor to count as a beat
-try {
-  const st = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-  st.getVideoTracks().forEach((t) => t.stop());
-  const ac = new AudioContext(), an = ac.createAnalyser();
-  an.fftSize = 1024; an.smoothingTimeConstant = 0;
-  ac.createMediaStreamSource(st).connect(an);
-  const f = new Uint8Array(an.frequencyBinCount), w = new Float32Array(an.fftSize);
-  let avg = 0, energy = 0, last = 0;
-  console.info('ZIK: audio loopback on');
-  heard = true; if (key && playing) m.sing(true, { bpm: bpm() });
-  setInterval(() => {
-    an.getFloatTimeDomainData(w); let r = 0; for (const x of w) r += x * x; r = Math.sqrt(r / w.length);
-    an.getByteFrequencyData(f); let b = 0; for (let i = 1; i < 8; i++) b += f[i]; b /= 7 * 255;   // ≈ 45–330 Hz (kick + bass)
-    energy += (r - energy) * .01;   // ~2s average loudness = how energetic the song is
-    avg += (b - avg) * .05;
-    if (!playing || !cfg.beat) return;
-    m.level(Math.min(1, r * 5));
-    const t = performance.now();
-    if (b > avg * BEAT + .02 && t - last > 280) { last = t; m.beat(Math.min(1.5, .3 + energy * 5)); }   // calm song = small sways, loud song = big hops
-  }, 20);
-} catch (e) { console.warn('audio capture unavailable, using internal tempo', e); }
+// tempo + energy from what the speakers play: src-tauri analyses WASAPI loopback and sends [loudness, beat]
+// (~15 Hz, plus right away on a beat; beat = hop strength from song energy, 0 = none). No events (macOS) → internal tempo.
+window.zik.onAudio(([r, beat]) => {
+  if (!heard) { heard = true; console.info('ZIK: audio loopback on'); if (key && playing) m.sing(true, { bpm: bpm() }); }
+  if (!playing || !cfg.beat) return;
+  m.level(Math.min(1, r * 5));
+  if (beat) m.beat(beat);
+});
 
 // ---------- panels: squircle cards beside the mascot (size, water). Esc / close button / click outside closes ----------
 const $ = (id) => document.getElementById(id);

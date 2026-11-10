@@ -1,4 +1,4 @@
-# Push a tag like v0.1.0 → builds the Windows installer (.exe) and macOS installers (.dmg, Intel + Apple Silicon)
+# Push a tag like v0.2.0 → builds the Windows installer (.exe) and a universal macOS installer (.dmg, Intel + Apple Silicon)
 # and attaches them to the GitHub Release for that tag.
 name: release
 on:
@@ -9,20 +9,31 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            args: ''
+          - os: macos-latest
+            args: '--target universal-apple-darwin'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm ci
-      - run: npx electron-builder --publish never
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: false   # unsigned build (no Apple/Windows certificate)
-      - uses: softprops/action-gh-release@v2
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          files: |
-            dist/*.exe
-            dist/*.dmg
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: ZIK ${{ github.ref_name }}
+          releaseDraft: false
+          args: ${{ matrix.args }}

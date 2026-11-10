@@ -1,0 +1,11 @@
+{
+  "identifier": "default",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:menu:default",
+    "core:window:allow-set-ignore-cursor-events",
+    "core:window:allow-set-focus",
+    "core:window:allow-close"
+  ]
+}

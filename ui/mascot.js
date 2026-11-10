@@ -21,7 +21,7 @@
  *   m.dizzy(ms);                // pusing: mata spiral, bintang mengorbit, oleng, mulut bergelombang (otomatis saat dilempar kencang)
  *   usap kepala bolak-balik (tanpa klik) = love
  *
- * Opsi: size, container (elemen/selector), floating (true = melayang di layar, false = ikut
+ * Opsi: fps (batas frame, default 60), idleFps (batas saat tenang, 0 = sama dengan fps), size, container (elemen/selector), floating (true = melayang di layar, false = ikut
  * alur halaman), x, y (posisi kaki awal), followPointer, idle, draggable, shadow, gravity, floor (jarak lantai dari bawah layar, px), sleepAfter (ms),
  * tapLines (array kalimat), onTap(m).
  */
@@ -141,7 +141,7 @@
 
   function create(options) {
     const o = Object.assign({ size: 220, container: null, floating: true, x: null, y: null, followPointer: true, idle: true,
-      draggable: true, shadow: true, gravity: true, floor: 24, sleepAfter: 0, tapLines: null, onTap: null }, options || {});
+      draggable: true, shadow: true, gravity: true, floor: 24, sleepAfter: 0, tapLines: null, onTap: null, fps: 60, idleFps: 0 }, options || {});
     if (!cssDone) { const s = document.createElement('style'); s.textContent = CSS; document.head.appendChild(s); cssDone = true; }
     if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) o.idle = false;
 
@@ -154,21 +154,22 @@
     // ---------- SVG ----------
     const INK = '#0c0c10';   // hitam doff
     const CRX = ERX + 9, CRY = ER + 9;   // rongga (cekungan) tempat mata tertanam
-    const ell = (x, y, rx, ry) => `M${x - rx} ${y}a${rx} ${ry} 0 1 0 ${2 * rx} 0a${rx} ${ry} 0 1 0 ${-2 * rx} 0Z`;
+    // tepi lembut lewat gradien radial, bukan filter blur (filter dirender ulang tiap frame karena badan bergerak = boros CPU)
+    const soft = (id, c) => `<radialGradient id="${U}-${id}">` + [[0, 1], [.5, .8], [.8, .3], [1, 0]].map(([of, a]) => `<stop offset="${of}" stop-color="${c}" stop-opacity="${a}"/>`).join('') + '</radialGradient>';
     const eyeSvg = (i, cx) =>
       // tepi kanan-bawah rongga menangkap cahaya (cekungan terlihat ditekan ke dalam)
-      `<ellipse cx="${cx + 2.5}" cy="${EY + 3.5}" rx="${CRX}" ry="${CRY}" fill="#bfe0ff" opacity=".6" filter="url(#${U}-b2)"/>` +
+      `<ellipse cx="${cx + 2.5}" cy="${EY + 3.5}" rx="${CRX}" ry="${CRY}" fill="#bfe0ff" opacity=".6"/>` +
       `<ellipse cx="${cx}" cy="${EY}" rx="${CRX}" ry="${CRY}" fill="url(#${U}-fp)"/>` +
       `<g class="eye" clip-path="url(#${U}-c${i})">` +
-      `<g class="ir"><ellipse class="ic" cx="${cx}" cy="${EY}" rx="${ERX}" ry="${ER}" fill="url(#${U}-cl)" filter="url(#${U}-b1)"/>` +
+      `<g class="ir"><ellipse class="ic" cx="${cx}" cy="${EY}" rx="${ERX}" ry="${ER}" fill="url(#${U}-cl)"/>` +
       `<g clip-path="url(#${U}-ie${i})">` +
-      `<ellipse cx="${cx - ERX * .28}" cy="${EY - ER * .42}" rx="${ERX * .55}" ry="${ER * .3}" fill="#fff" opacity=".09" filter="url(#${U}-b3)"/>` +
-      `<ellipse cx="${cx + ERX * .1}" cy="${EY + ER * .8}" rx="${ERX * .7}" ry="${ER * .2}" fill="#6a97ff" opacity=".22" filter="url(#${U}-b3)"/></g>` +
+      `<ellipse cx="${cx - ERX * .28}" cy="${EY - ER * .42}" rx="${ERX * .55 + 6}" ry="${ER * .3 + 6}" fill="url(#${U}-gw)" opacity=".09"/>` +
+      `<ellipse cx="${cx + ERX * .1}" cy="${EY + ER * .8}" rx="${ERX * .7 + 6}" ry="${ER * .2 + 6}" fill="url(#${U}-gb)" opacity=".22"/></g>` +
       `<path class="ht" d="M0 9C-20-4-13-20 0-9C13-20 20-4 0 9Z" fill="#ff5c8a" opacity="0"/></g>` +
       `<path class="lt" fill="url(#${U}-fp)"/><ellipse class="lb" fill="url(#${U}-fp)" opacity="0"/></g>` +
       // dasar rongga sedikit lebih gelap + bayangan dalam di tepi kiri-atas
       `<g clip-path="url(#${U}-c${i})"><ellipse cx="${cx}" cy="${EY}" rx="${CRX}" ry="${CRY}" fill="#0b3c96" opacity=".16"/>` +
-      `<path fill="#0a3585" opacity=".62" fill-rule="evenodd" filter="url(#${U}-b4)" d="M-60 -60H460V440H-60Z${ell(cx + 3, EY + 4, CRX, CRY)}"/></g>` +
+      `<ellipse cx="${cx}" cy="${EY}" rx="${CRX}" ry="${CRY}" fill="url(#${U}-gi)"/></g>` +
       `<path class="ar" fill="none" stroke="${INK}" stroke-width="4.5" stroke-linecap="round" opacity="0"/>` +
       `<g clip-path="url(#${U}-c${i})"><g class="sp" opacity="0"><ellipse cx="${cx}" cy="${EY}" rx="${ERX + 2}" ry="${ER + 2}" fill="#fff"/>` +
       `<path class="spp" d="${SPIRAL}" fill="none" stroke="${INK}" stroke-width="4" stroke-linecap="round" vector-effect="non-scaling-stroke"/></g></g>`;
@@ -176,18 +177,15 @@
     wrap.innerHTML =
       `<svg viewBox="0 0 400 ${VH}" xmlns="http://www.w3.org/2000/svg"><defs>` +
       `<pattern id="${U}-fp" patternUnits="userSpaceOnUse" width="400" height="${VH}"><image class="fpi" width="400" height="${VH}"/></pattern>` +
-      `<filter id="${U}-b6" x="-40%" y="-60%" width="180%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>` +
-      `<filter id="${U}-b1"><feGaussianBlur stdDeviation=".9"/></filter>` +
-      `<filter id="${U}-b2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>` +
-      `<filter id="${U}-b4" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="3.5"/></filter>` +
-      `<filter id="${U}-b3" x="-50%" y="-80%" width="200%" height="260%"><feGaussianBlur stdDeviation="3"/></filter>` +
+      soft('gs', '#0a2a66') + soft('gc', '#ff8fc7') + soft('gw', '#fff') + soft('gb', '#6a97ff') +
+      `<radialGradient id="${U}-gi" cx=".56" cy=".58" r=".62"><stop offset=".72" stop-color="#0a3585" stop-opacity="0"/><stop offset=".9" stop-color="#0a3585" stop-opacity=".45"/><stop offset="1" stop-color="#0a3585" stop-opacity=".62"/></radialGradient>` +
       `<radialGradient id="${U}-cl" cx=".38" cy=".28" r=".85"><stop offset="0" stop-color="#32323b"/><stop offset=".5" stop-color="#17171c"/><stop offset="1" stop-color="#060609"/></radialGradient>` +
       `<clipPath id="${U}-ie0"><ellipse class="ie" cx="${CX - EDX}" cy="${EY}" rx="${ERX}" ry="${ER}"/></clipPath><clipPath id="${U}-ie1"><ellipse class="ie" cx="${CX + EDX}" cy="${EY}" rx="${ERX}" ry="${ER}"/></clipPath>` +
       `<clipPath id="${U}-c0"><ellipse cx="${CX - EDX}" cy="${EY}" rx="${ERX + 9}" ry="${ER + 9}"/></clipPath><clipPath id="${U}-c1"><ellipse cx="${CX + EDX}" cy="${EY}" rx="${ERX + 9}" ry="${ER + 9}"/></clipPath><clipPath id="${U}-mc"><path class="mc"/></clipPath></defs>` +
-      (o.shadow ? `<ellipse class="sh" cx="200" cy="343" rx="118" ry="13" fill="#0a2a66" opacity=".22" filter="url(#${U}-b6)"/>` : '') +
+      (o.shadow ? `<ellipse class="sh" cx="200" cy="343" rx="130" ry="25" fill="url(#${U}-gs)" opacity=".22"/>` : '') +
       `<g class="body">` +
       `<path class="f0" fill="#2f86e6"/><path class="f1" fill="#4aa4fa"/><path class="f2" fill="#7cc4ff"/><image class="fedge" x="0" y="0" width="400" height="${VH}"/><image class="fimg" x="0" y="0" width="400" height="${VH}"/>` +
-      `<ellipse class="ch" cx="100" cy="274" rx="20" ry="11" fill="#ff8fc7" opacity="0" filter="url(#${U}-b6)"/><ellipse class="ch" cx="300" cy="274" rx="20" ry="11" fill="#ff8fc7" opacity="0" filter="url(#${U}-b6)"/>` +
+      `<ellipse class="ch" cx="100" cy="274" rx="29" ry="20" fill="url(#${U}-gc)" opacity="0"/><ellipse class="ch" cx="300" cy="274" rx="29" ry="20" fill="url(#${U}-gc)" opacity="0"/>` +
       eyeSvg(0, CX - EDX) + eyeSvg(1, CX + EDX) +
       `<path class="mo" fill="${INK}" stroke="${INK}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/><ellipse class="tg" fill="#ff6f91" clip-path="url(#${U}-mc)" opacity="0"/>` +
       `<g class="st" opacity="0">${('<path d="' + STAR + '" fill="#ffd23f" stroke="#e8a600" stroke-width="2" stroke-linejoin="round"/>').repeat(5)}</g>` +
@@ -402,7 +400,10 @@
     // ---------- loop ----------
     function frame(now) {
       raf = requestAnimationFrame(frame);
-      const dt = Math.min(.033, (now - S.last) / 1000); S.last = now; if (dt <= 0) return;
+      // batas fps (hemat CPU): penuh saat ada gerak besar, idleFps saat tenang (bernapas, bergoyang pelan)
+      const busy = S.move || S.falling || S.drag || S.jy < 0 || S.windup > 0 || S.spin >= 0 || S.shk > 0 || S.wig > 0;
+      if (now - S.last < 1000 / (busy || !o.idleFps ? o.fps : o.idleFps) - 2) return;
+      const dt = Math.min(.05, (now - S.last) / 1000); S.last = now; if (dt <= 0) return;
       S.t += dt;
       const U2 = U_(), tt = S.t;
 

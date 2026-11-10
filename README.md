@@ -7,8 +7,8 @@ bergoyang mengikuti irama, bisa diangkat & dilempar, dan mengingatkanmu minum ai
 
 Ambil installer terbaru di halaman [Releases](https://github.com/zikrifikri21/ZIK/releases):
 
-- **Windows:** `ZIK-x.y.z-win-x64.exe`
-- **macOS:** `ZIK-x.y.z-mac-arm64.dmg` (Apple Silicon) atau `ZIK-x.y.z-mac-x64.dmg` (Intel)
+- **Windows:** `ZIK_x.y.z_x64-setup.exe` (±5 MB, memakai WebView2 bawaan Windows)
+- **macOS:** `ZIK_x.y.z_universal.dmg` (Apple Silicon & Intel)
 
 Installer belum ditandatangani (unsigned):
 - Windows SmartScreen: klik **More info → Run anyway**.
@@ -23,13 +23,16 @@ Usap kepalanya untuk membuatnya senang; lempar dia dan dia akan pusing.
 
 ## Pengembangan
 
+Dibuat dengan [Tauri 2](https://tauri.app): tampilan & logika di `ui/`, bagian native (lagu yang diputar, audio sistem,
+posisi kursor) di `src-tauri/`. Butuh [Rust](https://rustup.rs) dan, di Windows, Visual Studio Build Tools (C++).
+
 ```bash
 npm install
-npm start        # jalankan
+npm start        # jalankan (mode pengembangan)
 npm test         # cek pembersih judul + pencarian lirik
-npm run dist     # buat installer untuk OS saat ini → dist/
+npm run dist     # buat installer untuk OS saat ini → src-tauri/target/release/bundle/
 ```
 
-Rilis baru: naikkan `version` di `package.json`, lalu `git tag vX.Y.Z && git push --tags` — GitHub Actions membuat installer Windows & macOS.
+Rilis baru: naikkan `version` di `src-tauri/tauri.conf.json`, lalu `git tag vX.Y.Z && git push --tags` — GitHub Actions membuat installer Windows & macOS.
 
 Lirik dari [LRCLIB](https://lrclib.net). Ikon dari [Hugeicons](https://hugeicons.com) (MIT).
