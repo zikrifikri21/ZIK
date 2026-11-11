@@ -2,11 +2,13 @@
 // Settings live in localStorage (the app's own WebView profile); native bits come from src-tauri as events.
 (() => {
   const T = window.__TAURI__, win = T.window.getCurrentWindow(), { listen } = T.event;
-  const DEF = { size: 200, lyrics: true, context: true, offset: 0, drag: true, gravity: true, follow: true, wander: false, beat: true,
+  const DEF = { size: 200, lyrics: true, context: true, offset: 0, drag: true, gravity: true, follow: true, wander: false, beat: true, lyricSize: 16, focusUntil: 0, restUntil: 0, pomo: [{ f: 25, r: 5 }], pomoIdx: 0, isle: null,
     water: { on: true, cup: 250, goal: 2000, every: 60, from: '08:00', to: '22:00', last: 0 }, waterLog: {} };
   const KEY = 'zik.settings';
   let cfg;
   try { cfg = { ...DEF, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { cfg = { ...DEF }; }
+  if (!Array.isArray(cfg.pomo) || !cfg.pomo.length) cfg.pomo = DEF.pomo;   // older builds stored { focus, rest }
+  cfg.pomo = cfg.pomo.slice(0, 5);   // max 5 sessions
 
   const onSettings = [], onPanel = [];
   function set(patch) {
@@ -27,10 +29,11 @@
 
   async function menu() {
     const chk = (text, k) => ({ text, checked: cfg[k], action: () => set({ [k]: !cfg[k] }) });
-    const sep = { item: 'Separator' }, off = cfg.offset;
+    const sep = { item: 'Separator' }, off = cfg.offset, fl = cfg.focusUntil - Date.now();
     const m = await T.menu.Menu.new({ items: [
-      { text: `Ukuran… (${cfg.size}px)`, action: () => panel('size') },
+      { text: 'Ukuran maskot & lirik…', action: () => panel('size') },
       { text: 'Pengingat minum…', action: () => panel('water') },
+      { text: fl > 0 ? `Pomodoro… (sisa ${Math.ceil(fl / 60000)} mnt)` : 'Pomodoro…', action: () => panel('pomo') },
       sep,
       chk('Tampilkan lirik', 'lyrics'),
       chk('Baris sebelum dan sesudah', 'context'),
@@ -61,5 +64,6 @@
     lyrics: (media) => window.lyricsFind(media),
     hover: (on) => { ignoring = !on; win.setIgnoreCursorEvents(!on); },
     menu,
+    panel,
   };
 })();

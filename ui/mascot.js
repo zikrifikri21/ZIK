@@ -52,6 +52,7 @@
     happy: { bL: .5, bR: .5, pupil: 1.05, mA: 1, mC: 1, mO: .2, blush: .5 },
     sad: { tL: .2, tR: .2, tilt: .5, pupil: 1.15, mA: 1, mC: -.9, mW: .8 },
     angry: { tL: .22, tR: .22, tilt: -.55, pupil: .92, mA: 1, mC: -.5, mW: .9 },
+    sulky: { tL: .45, tR: .45, tilt: -.35, pupil: .9, mA: 1, mC: -.25, mW: .55, blush: .35 },   // jutek: setengah merem, manyun, sedikit merona
     surprised: { pupil: 1.18, mA: 1, mC: 0, mO: .9, mW: .5 },
     sleepy: { tL: .55, tR: .55, tilt: .12 },
     sleep: { tL: 1, tR: 1, mA: .8, mC: .3, mO: .12, mW: .7, zzz: 1 },
@@ -333,7 +334,7 @@
         pause(3, 6);
       } else pause(4, 9);   // diam, istirahat
     }
-    function wake() { if (!S.asleep) return; setMood('neutral'); setMood('surprised', 700); jump(40); }
+    function wake() { bump(); /* bump first: else the idle timer is still expired and it dozes off next frame */ if (!S.asleep) return; setMood('neutral'); setMood('surprised', 700); jump(40); }
     function look(x, y) {
       const b = svg.getBoundingClientRect(), dx = x - (b.left + b.width / 2), dy = y - (b.top + b.height * EY / VH);
       const d = Math.hypot(dx, dy) || 1, m = Math.min(1, d / (b.width * .9));
@@ -424,7 +425,7 @@
         const c = Math.random() < .3; S.lookTX = c ? 0 : Math.random() * 1.6 - .8; S.lookTY = c ? 0 : Math.random() - .5; S.nextGlance = tt + 1.2 + Math.random() * 2.3;
       }
       if (S.asleep) { S.lookTX = 0; S.lookTY = 0; }
-      if (o.sleepAfter && !S.singing && !S.asleep && !S.move && now - S.lastAct > o.sleepAfter) setMood('sleep');
+      if (o.sleepAfter && !S.singing && !S.asleep && !S.move && now > S.tmpUntil && now - S.lastAct > o.sleepAfter) setMood('sleep');   // a timed mood (e.g. angry) keeps it awake
       if (S.wanderOn && !S.move && !S.drag && !S.asleep && !S.falling && !S.grabbed && tt > S.nextWander && now > S.tmpUntil) idleAct();
 
       // jalan melompat
