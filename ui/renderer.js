@@ -16,6 +16,7 @@ const m = Mascot.create({ size: cfg.size, floor: 4, fps: 30, idleFps: 24, sleepA
   onTap: () => { if (thirsty) { const ml = cfg.water.cup; drink(ml); thanks(ml); } },   // tap after a reminder = I drank
   onPet: () => sulk(),   // petting while it's mad about water → sulky, not love
 });
+window.__mascot = m;   // debug (DevTools)
 // "Maaciiw <heart> +250 ml" (icon in the middle of the bubble)
 const thanks = (ml) => { m.say(`Maaciiw +${ml} ml`, 2200); const b = m.el.querySelector('.mb-bubble'); b.textContent = 'Maaciiw'; b.insertAdjacentHTML('beforeend', `<span class="hi">${ICON.heart}</span>`); b.append(`+${ml} ml`); };
 // speech bubble with a leading icon (m.say sets plain text, then the svg is prepended)
@@ -132,14 +133,16 @@ const bpm = () => (heard && cfg.beat ? 0 : 100);   // real beats from audio, els
 const resing = () => m.sing(!!key && playing && !thirsty, { bpm: bpm() });
 
 function apply(c) {
-  const fall = c.gravity && !cfg.gravity, wand = c.wander !== cfg.wander;
+  const fall = c.gravity && !cfg.gravity, wand = c.wander !== cfg.wander, chr = c.char !== cfg.char || c.charImg !== cfg.charImg;
   cfg = c;
+  if (chr) setChar();
   if (!tw) m.setSize(big ? Math.max(300, c.size) : c.size);   // skip while a grow/shrink tween runs
-  m.gravity(c.gravity); m.draggable(c.drag); m.follow(c.follow);
+  m.gravity(c.gravity); m.draggable(c.drag); m.follow(c.follow); m.hands(c.hands); m.handLyrics(c.lyrics && c.handLyrics);
   if (wand) m.wander(c.wander);
   if (fall) m.drop();
   resing();
-  zl.hidden = !c.lyrics; zl.classList.toggle('solo', !c.context); document.documentElement.style.setProperty('--ls', c.lyricSize + 'px'); setIsle(true); cur = -2;
+  zl.hidden = !c.lyrics; zl.style.display = c.handLyrics ? 'none' : '';   // tulisan tangan menggantikan panel; pulau dinamis tetap memakai liriknya
+zl.classList.toggle('solo', !c.context); document.documentElement.style.setProperty('--ls', c.lyricSize + 'px'); setIsle(true); cur = -2;
   if (c.focusUntil !== focusAt) focus(focusAt = c.focusUntil);
   if (c.restUntil !== restAt) rest(restAt = c.restUntil);
   if (panel?.id === 'pWater') renderWater();
@@ -243,7 +246,8 @@ window.zik.onMedia(async (s) => {
 
   const k = s.title ? `${s.title}|${s.artist}` : '';
   if (k === key) return;
-  key = k; show(null); m.lyrics(null); m.sing(false);
+  key = k; window.__TAURI__.event.emit('song');   // src-tauri: forget the old song's tempo
+  show(null); m.lyrics(null); m.sing(false); keyVotes = 0; songDef = ''; m.singMood('', true);
   if (!k) return m.mood('sleepy');
   m.mood('surprised'); say('note', s.title, 2500);
   msg = { icon: ICON.note, text: s.artist ? `${s.title} — ${s.artist}` : s.title, until: performance.now() + 4000 }; setIsle();   // island (focus mode)
@@ -252,6 +256,10 @@ window.zik.onMedia(async (s) => {
   resing();
   if (!lrc) return say('noLyrics', 'Liriknya nggak ketemu', 3000);
   const L = Mascot.parseLRC(lrc);
+  const sm = window.songMood(L);               // line.mood (lihat emotion.js) → face while singing, offline word list
+  // lagu yang jelas iri/cemas/sedih/...: baris tanpa kata emosi ikut emosi lagu (bukan happy dari kunci nada).
+  // Bukan love: semua baris jadi love dan wajah tak pernah berubah (tes Best Friend)
+  if (sm && sm !== 'love' && sm !== 'happy') { songDef = sm; m.singMood(sm, true); }
   show(L); m.lyrics(L, now);                   // m.lyrics still drives mouth vowel shapes
 });
 
@@ -260,8 +268,22 @@ window.zik.onMedia(async (s) => {
 window.zik.onAudio(([r, beat]) => {
   if (!heard) { heard = true; console.info('ZIK: audio loopback on'); resing(); }
   if (!playing || !cfg.beat) return;
+  loud += (r - loud) * .01;   // ~5 s average
   m.level(Math.min(1, r * 5));
-  if (beat) m.beat(beat);
+  if (beat) { m.beat(beat); const ea = bodyG.firstChild; ea.classList.remove('beat'); void m.el.offsetWidth; ea.classList.add('beat'); }
+});
+
+// song key from src-tauri (~every 2 s): [minor − major correlation, tonic]. Fills the face for lyric lines without
+// emotion words (and songs without lyrics): calm minor → sad, else happy. Needs 3 agreeing reports after a song change
+// because the key average still holds the previous song for ~10 s.
+let loud = 0, keyVotes = 0, songDef = '';
+window.zik.onTempo((p) => playing && cfg.beat && m.tempo(p));   // beat period (s), autocorrelation in src-tauri
+window.zik.onKey(([d]) => {
+  if (!playing) return;
+  console.debug('ZIK key', d.toFixed(2), loud.toFixed(3));   // calibration: d > 0 = minor
+  const v = d > .05 ? 1 : d < -.05 ? -1 : 0;
+  keyVotes = v && Math.sign(keyVotes) === v ? keyVotes + v : v;
+  if (Math.abs(keyVotes) >= 3 && !songDef) m.singMood(keyVotes > 0 && loud < .12 ? 'sad' : 'happy', true);
 });
 
 // ---------- panels: squircle cards beside the mascot (size, water). Esc / close button / click outside closes ----------
@@ -288,7 +310,9 @@ window.zik.onPanel((name) => {
   if (name === 'size') { $('rng').value = cfg.size; $('rngOut').value = cfg.size + ' px'; $('rngL').value = cfg.lyricSize; $('rngLOut').value = cfg.lyricSize + ' px'; }
   if (name === 'water') renderWater();
   if (name === 'pomo') { renderPomo(); renderSets(); }
-  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo' }[name]));
+  if (name === 'chat') refreshModels();
+  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo', chat: 'pChat', char: 'pChar' }[name]));
+  if (name === 'chat') $('cIn').focus();
 });
 
 // pomodoro panel
@@ -409,3 +433,170 @@ addEventListener('pointermove', (e) => {
   if (o !== over) window.zik.hover(over = o);
 });
 addEventListener('contextmenu', (e) => { e.preventDefault(); window.zik.menu(); });
+
+// ---------- characters: a CSS filter recolours the blue fur (the rage-mode trick), ears sit behind the body, and a
+// picked image replaces the body altogether (index.html hides everything else while .img is set) ----------
+const EARS = {   // drawn for the left side of the 400 x 380 viewBox, mirrored for the right
+  cat: '<path d="M84 118L98 22Q102 8 114 16L182 70Z" fill="#2a7ad6"/><path d="M106 94L111 42L154 76Z" fill="#a8d8ff"/>',
+  bear: '<circle cx="96" cy="80" r="40" fill="#2a7ad6"/><circle cx="99" cy="84" r="21" fill="#a8d8ff"/>',
+  bunny: '<g transform="translate(130 26) rotate(-14)"><ellipse rx="26" ry="58" fill="#2a7ad6"/><ellipse cy="4" rx="12" ry="40" fill="#a8d8ff"/></g>',
+  horns: '<path d="M112 96Q84 40 122 6Q118 50 162 66Z" fill="#f6ead2" stroke="#cdb98c" stroke-width="2"/>',
+};
+const EAR_AT = { cat: '75% 95%', bear: '70% 90%', bunny: '50% 100%', horns: '70% 95%' };
+const CHARS = {   // id: [name, filter, ears]
+  ninuy: ['Ninuy', 'hue-rotate(60deg) saturate(1.15)', 'cat'],
+  bulu: ['Bulu', '', ''],   // ZIK's original
+  momo: ['Momo', 'hue-rotate(175deg) saturate(1.6) brightness(1.3)', 'bear'],
+  pinky: ['Pinky', 'hue-rotate(110deg) brightness(1.15)', 'bunny'],
+  lumi: ['Lumi', 'hue-rotate(-75deg)', ''],
+  kuro: ['Kuro', 'grayscale(.9) brightness(.55)', 'horns'],
+  doodle: ['Doodle', 'grayscale(1) brightness(.35) contrast(1.6)', ''],   // garis putih di wajah hitam; filter hanya untuk contoh di daftar
+};
+const bodyG = m.svg.querySelector('.body');
+bodyG.insertAdjacentHTML('afterbegin', '<g class="ears"></g>');
+// Doodle: kepala bulat coretan tangan (jari-jari sedikit bergelombang, ujung garis melewati titik awal)
+const ddPath = (() => { let d = ''; for (let j = 0; j <= 76; j++) { const a = -1.9 + j / 72 * Math.PI * 2, r = 1 + Math.sin(j * .7) * .008 + Math.sin(j * .23) * .01; d += (j ? 'L' : 'M') + (200 + 150 * r * Math.cos(a)).toFixed(1) + ' ' + (194 + 140 * r * Math.sin(a)).toFixed(1); } return d; })();
+bodyG.firstChild.insertAdjacentHTML('afterend', `<path class="dd ddo" d="${ddPath}"/><path class="dd" d="${ddPath}"/>`);   // ddo = dark rim, visible on light desktops
+bodyG.insertAdjacentHTML('beforeend', '<image class="cimg" x="30" y="40" width="340" height="300" preserveAspectRatio="xMidYMax meet"/>');
+function setChar() {
+  const img = cfg.char === 'img' && cfg.charImg, [, filter, ears] = (!img && CHARS[cfg.char]) || [];
+  m.el.classList.toggle('img', !!img); bodyG.lastChild.setAttribute('href', img || '');
+  m.el.style.setProperty('--char', cfg.char === 'doodle' ? 'none' : filter || 'none');
+  m.el.classList.toggle('doodle', cfg.char === 'doodle');
+  // .ear pivots at its root (EAR_AT, % of its own box) → CSS turns it per data-mood; .tw = twitch on a beat
+  const e = ears && `<g class="ear" style="transform-origin:${EAR_AT[ears]}"><g class="tw">${EARS[ears]}</g></g>`;
+  bodyG.firstChild.innerHTML = e ? e + `<g transform="translate(400 0) scale(-1 1)">${e}</g>` : '';
+  for (const b of $('chList').children) b.classList.toggle('on', b.dataset.c === cfg.char);
+}
+$('chList').innerHTML = Object.entries(CHARS).map(([id, [name, filter]]) => `<button type="button" data-c="${id}"><i style="filter:${filter}"></i>${name}</button>`).join('');
+$('chList').onclick = (e) => { const c = e.target.closest('button')?.dataset.c; if (c) window.zik.set({ char: c }); };
+$('chPick').onclick = () => $('chFile').click();
+$('chFile').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  // ponytail: stored as-is in localStorage (about 5 MB for all settings), so big files are refused; downscale on a canvas if that bites
+  if (f.size > 1.5e6) return m.say('Gambarnya terlalu besar (maks 1,5 MB)', 4000);
+  const r = new FileReader(); r.onload = () => window.zik.set({ char: 'img', charImg: r.result }); r.readAsDataURL(f);
+};
+setChar();
+
+// ---------- AI chat (ai.js): pick a provider + model from dropdowns; the reply streams into the log; a command the
+// model wants to run waits for a click. Ollama can be installed and models downloaded from here ----------
+const T = window.__TAURI__.core, cLog = $('cLog'), win = navigator.userAgent.includes('Windows');
+function line(cls, text) { const p = document.createElement('p'); p.className = cls; p.textContent = text; cLog.append(p); cLog.scrollTop = cLog.scrollHeight; fitPanel(); return p; }
+const stat = (t) => { $('cStat').textContent = t; fitPanel(); };
+const shell = (command, timeout) => T.invoke('run_command', { command, timeout });
+const get = (url, headers) => T.invoke('http_get', { url, headers });
+const stream = (url, headers, body, onLine) => new Promise((res, rej) => {
+  const ch = new T.Channel(); let err;
+  ch.onmessage = (l) => { if (!l) return err ? rej(err) : res(); try { onLine(l); } catch (e) { err ||= e; } };   // "" = end marker
+  T.invoke('http_stream', { url, headers, body, onLine: ch }).catch(rej);
+});
+const prov = () => ({ id: cfg.aiProvider, ...PROVIDERS[cfg.aiProvider], key: cfg.aiKeys[cfg.aiProvider] || '', model: cfg.aiModel });
+let ask = null, askFor = '';
+function getAsk() {   // a new conversation whenever provider / model / key change (each speaks its own history format)
+  const p = prov(), k = [p.id, p.model, p.key].join('|');
+  if (k !== askFor) {
+    askFor = k;
+    ask = createAI({ windows: win, provider: p, stream, shell,
+      confirm: (cmd) => cfg.aiAuto || new Promise((res) => {
+        const el = line('ask', cmd); el.append(document.createElement('br'));
+        for (const [label, ok] of [['Jalankan', true], ['Tolak', false]]) {
+          const b = el.appendChild(document.createElement('button')); b.type = 'button'; b.textContent = label;
+          b.onclick = () => { el.querySelectorAll('button').forEach((x) => x.remove()); res(ok); };
+        }
+        if (panel?.id !== 'pChat') m.say('Boleh kujalankan? Buka obrolan ya', 4000);   // panels close when the window loses focus
+      }) });
+  }
+  return ask;
+}
+const fill = (sel, items) => sel.replaceChildren(...items.map(([v, t]) => new Option(t, v)));   // Option() = text, never HTML
+fill($('cProv'), Object.entries(PROVIDERS).map(([id, p]) => [id, p.name]));
+fill($('cPull'), OLLAMA_CATALOG);
+let ollamaUp = false;
+async function refreshModels() {
+  const p = prov(), local = p.id === 'ollama';
+  $('cProv').value = p.id; $('cKey').value = p.key; $('cKeyRow').hidden = local; $('cAuto').checked = cfg.aiAuto;
+  $('cModel').replaceChildren(new Option('memuat…', ''));
+  let list = [];
+  try { list = await listModels(p, get); stat(list.length ? '' : local ? 'Belum ada model. Pilih satu di "Unduh model".' : 'Tidak ada model chat yang bisa dipakai.'); if (local) ollamaUp = true; }
+  catch (e) {
+    if (local) ollamaUp = false;
+    stat(local ? 'Ollama belum terpasang atau belum jalan. Klik "Pasang & jalankan Ollama", atau pilih penyedia online.'
+      : !p.key ? 'Isi API key dulu (klik ↗ untuk membuatnya).' : 'Gagal memuat model: ' + (e.message || e));
+  }
+  $('cSetup').hidden = !local; $('cInstall').hidden = ollamaUp; $('cPullRow').hidden = !ollamaUp;
+  fill($('cModel'), list.length ? list.map((x) => [x, x]) : [['', '(belum ada model)']]);
+  if (list.length && !list.includes(cfg.aiModel)) window.zik.set({ aiModel: list[0] });
+  $('cModel').value = cfg.aiModel;
+  fitPanel();
+}
+$('cProv').onchange = (e) => { window.zik.set({ aiProvider: e.target.value, aiModel: '' }); refreshModels(); };
+$('cModel').onchange = (e) => window.zik.set({ aiModel: e.target.value });
+$('cKey').onchange = (e) => { window.zik.set({ aiKeys: { ...cfg.aiKeys, [cfg.aiProvider]: e.target.value.trim() } }); refreshModels(); };
+$('cKeyGet').onclick = () => shell(win ? `Start-Process '${prov().keyUrl}'` : `open '${prov().keyUrl}'`);   // own constants, never model output
+$('cRefresh').onclick = refreshModels;
+$('cAuto').onchange = (e) => window.zik.set({ aiAuto: e.target.checked });
+
+// Install = the official installer from ollama.com, silent; an existing install (found via its uninstall entry, so a
+// custom folder counts) is only started. macOS: opens the download page.
+const INSTALL = `$dir = (Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*' -ErrorAction SilentlyContinue | Where-Object DisplayName -like 'Ollama*' | Select-Object -First 1).InstallLocation
+if (-not $dir) {
+  $f = Join-Path $env:TEMP 'OllamaSetup.exe'
+  Invoke-WebRequest 'https://ollama.com/download/OllamaSetup.exe' -OutFile $f -UseBasicParsing
+  Start-Process $f -ArgumentList '/VERYSILENT', '/NORESTART', '/SUPPRESSMSGBOXES' -Wait
+  Remove-Item $f -ErrorAction SilentlyContinue
+  $dir = Join-Path $env:LOCALAPPDATA 'Programs\\Ollama'
+}
+$app = Join-Path $dir 'ollama app.exe'
+if (Test-Path $app) { Start-Process $app } else { Start-Process (Join-Path $dir 'ollama.exe') serve -WindowStyle Hidden }`;
+let setupBusy = false;
+$('cInstall').onclick = async () => {
+  if (setupBusy) return;
+  if (!win) return shell("open 'https://ollama.com/download'");
+  setupBusy = true; $('cInstall').disabled = true; stat('Memasang Ollama… (unduhan ±1 GB, bisa beberapa menit)');
+  try {
+    stat(await shell(INSTALL, 1800) || 'Ollama dijalankan, menunggu siap…');
+    for (let i = 0; i < 30; i++) { await refreshModels(); if (ollamaUp) break; await new Promise((r) => setTimeout(r, 1000)); }   // the server needs a few seconds
+    if (!ollamaUp) stat('Ollama belum merespons. Coba klik ⟳ sebentar lagi.');
+  } catch (e) { stat('Gagal memasang: ' + (e.message || e)); }
+  setupBusy = false; $('cInstall').disabled = false;
+};
+$('cPullGo').onclick = async () => {
+  const model = $('cPull').value;
+  if (setupBusy) return;
+  setupBusy = true; $('cPullGo').disabled = true; stat(`Mengunduh ${model}…`);
+  try {
+    await stream(prov().url + '/api/pull', {}, { model, stream: true }, (l) => {
+      const j = JSON.parse(l);
+      if (j.error) throw new Error(j.error);
+      stat(`Mengunduh ${model}: ` + (j.total ? `${Math.floor((j.completed || 0) / j.total * 100)}% dari ${(j.total / 1e9).toFixed(1)} GB` : j.status));
+    });
+    window.zik.set({ aiModel: model.includes(':') ? model : model + ':latest' }); await refreshModels(); stat(`${model} siap dipakai.`);   // Ollama lists "lfm3" as "lfm3:latest"
+  } catch (e) { stat(`Gagal mengunduh ${model}: ${e.message || e}`); }
+  setupBusy = false; $('cPullGo').disabled = false;
+};
+
+let busy = false;
+$('cForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $('cIn').value.trim(), ps = [];
+  if (!text || busy) return;
+  if (!cfg.aiModel) return stat('Pilih model dulu.');
+  busy = true; $('cIn').value = ''; line('me', text); m.wake(); m.lookDir(.6, -.8);   // glances up: thinking
+  try {
+    const reply = await getAsk()(text, (step, t) => { if (!t) return; (ps[step] ||= line('ai', '')).textContent = t; cLog.scrollTop = cLog.scrollHeight; m.vowel('aiueo'[t.length % 5], 300); });
+    m.mood('happy', 1500);
+    if (panel?.id !== 'pChat' && reply) m.say(reply.slice(0, 160), 7000);
+  } catch (err) { line('err', String(err.message || err)); refreshModels(); }
+  busy = false;
+};
+m.el.addEventListener('dblclick', () => window.zik.panel('chat'));
+
+// tulisan tangan: teks hitam di atas latar terang, putih di atas latar gelap. src-tauri membaca piksel layar tepat di
+// atas & bawah tulisan (WebView tak bisa melihat desktop di balik jendela transparan). Ambang beda = tidak berkedip.
+setInterval(async () => {
+  const hw = m.el.querySelector('.mb-hw');
+  if (!hw.classList.contains('show')) return;
+  const r = hw.getBoundingClientRect(), l = await T.invoke('bg_luma', { x: r.left, y: r.top, wd: r.width, h: r.height }).catch(() => -1);
+  if (l >= 0) hw.classList.toggle('ink', hw.classList.contains('ink') ? l > .45 : l > .6);
+}, 700);

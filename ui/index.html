@@ -94,7 +94,44 @@
   .mascot-bulu .mb-bubble svg.tl path { fill: #fff; transition: d .45s cubic-bezier(.2,.8,.2,1); }
 
   /* rage: body turns red (direct child svg only, so the glass and bubble icons keep their colors) */
-  .mascot-bulu > svg { transition: filter .8s; }
+  /* character: the same kind of filter recolours the blue fur (--char, set by renderer.js); a picked image (.img) replaces the body */
+  .mascot-bulu > svg { transition: filter .8s; filter: var(--char, none); }
+  .mascot-bulu:not(.img) .cimg, .mascot-bulu.img .body > :not(.cimg) { display: none; }
+/* ears follow the mood (data-mood from mascot.js; while singing = the lyric's emotion). Angles are for the left ear,
+   the right one is a mirrored copy, so negative = tips out and down */
+.ear, .ear .tw { transform-box: fill-box; transform-origin: inherit; }
+.ear { transition: transform .45s cubic-bezier(.3,1.6,.5,1); }
+[data-mood=happy] .ear { transform: rotate(5deg); }
+[data-mood=love] .ear { transform: rotate(-12deg); animation: ear-wig 1.2s ease-in-out infinite; }
+[data-mood=surprised] .ear { transform: rotate(8deg) scale(1.15); }
+[data-mood=sad] .ear, [data-mood=sleepy] .ear { transform: rotate(-38deg) scale(.95); }
+[data-mood=sleep] .ear, [data-mood=hurt] .ear { transform: rotate(-50deg) scale(.92); }
+[data-mood=angry] .ear, [data-mood=sulky] .ear { transform: rotate(-62deg) scale(.85); }   /* flattened back */
+[data-mood=dizzy] .ear { animation: ear-wig .5s ease-in-out infinite; }
+[data-mood=fear] .ear { transform: rotate(-56deg) scale(.88); animation: ear-shiver .09s linear infinite; }   /* rata ke belakang, gemetar */
+[data-mood=anxiety] .ear { transform: rotate(-18deg); animation: ear-wig .35s ease-in-out infinite; }   /* berkedut gelisah */
+[data-mood=disgust] .ear { transform: rotate(-28deg) scale(.92); }
+[data-mood=envy] .ear { transform: rotate(-24deg) scale(.95); }
+[data-mood=ennui] .ear { transform: rotate(-46deg) scale(.95); }   /* layu */
+[data-mood=embarrassed] .ear { transform: rotate(-32deg) scale(.9); }
+@keyframes ear-shiver { 50% { translate: 1.5px 0; } }
+[data-mood=ennui] .ears.beat .tw, [data-mood=fear] .ears.beat .tw { animation: none; }
+.ears.beat .tw { animation: ear-tw .22s ease-out; }
+[data-mood=sad] .ears.beat .tw, [data-mood=sleep] .ears.beat .tw { animation: none; }   /* sad = limp, no twitch */
+@keyframes ear-tw { 40% { transform: rotate(9deg) scaleY(1.06); } }
+/* Doodle character: fur, eye sockets and ears off; a hand-drawn white outline on a black face, small white dot eyes,
+   white-outlined mouth and black gloves with white lines (mascot.js reads --hf / --hk) */
+.mascot-bulu:not(.doodle) .dd { display: none; }
+.doodle .f0, .doodle .f1, .doodle .f2, .doodle .fedge, .doodle .fimg, .doodle .sk, .doodle .ears { display: none; }
+.doodle { --hf: #111116; --hk: #fff; }
+.doodle .dd { fill: #111116; stroke: #fff; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.doodle .ddo { stroke: #111116; stroke-width: 13; }
+.doodle .lt, .doodle .lb { fill: #111116; }
+.doodle .ic { fill: #fff; }
+.doodle .eye { transform-box: view-box; transform: scale(.34); }
+.doodle .ar { stroke: #fff; }
+.doodle .mo { fill: #111116; stroke: #fff; }
+@keyframes ear-wig { 50% { transform: rotate(4deg); } }
   .mascot-bulu.red > svg { filter: hue-rotate(150deg) saturate(1.5) brightness(.95); }
   .mascot-bulu .mb-bubble .hi svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; margin: 0 4px; color: #ff4d7d; }
 
@@ -166,7 +203,7 @@
   .fields label { white-space: nowrap; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .fields label:last-child { border-bottom: 0; padding-bottom: 0; }
   .fields span { display: flex; align-items: center; gap: 6px; color: var(--mut); }
-  .fields input[type=number], .fields input[type=time] { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 1px solid transparent;
+  .fields input[type=number], .fields input[type=time], .zp input[type=text] { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 1px solid transparent;
         border-radius: 10px; corner-shape: squircle; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
   .fields input[type=number] { width: 70px; }
   .fields input[type=time] { width: 64px; color-scheme: light dark; }
@@ -176,6 +213,26 @@
   .fields input[type=checkbox]::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
   .fields input[type=checkbox]:checked { background: var(--acc); }
   .fields input[type=checkbox]:checked::after { transform: translateX(16px); }
+
+  /* chat with the AI + character picker */
+  #pChat { width: 340px; }
+  #cLog { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; margin-bottom: 10px; }
+  #cLog p { margin: 0; padding: 7px 11px; max-width: 88%; align-self: flex-start; background: var(--soft); border-radius: 14px; corner-shape: squircle; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #cLog .me { align-self: flex-end; background: var(--acc); color: var(--acc-fg); }
+  #cLog .err { color: #d6453d; }
+  #cLog .ask { font: 12px/1.4 ui-monospace, Consolas, monospace; }
+  #cLog .ask button { margin: 8px 6px 0 0; padding: 5px 12px; font-family: var(--sf); background: var(--bg); }
+  #cForm { display: flex; gap: 8px; }
+  #cIn { flex: 1; min-width: 0; padding: 9px 12px; text-align: left; }
+  .zp select { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 1px solid transparent; border-radius: 10px; corner-shape: squircle; padding: 5px 8px; width: 170px; color-scheme: light dark; }
+  .zp input[type=password] { font: inherit; color: var(--fg); background: var(--soft); border: 1px solid transparent; border-radius: 10px; padding: 5px 8px; width: 130px; }
+  #cStat { margin: 8px 0 0; color: var(--mut); font-size: 12px; white-space: pre-wrap; }
+  #cStat:empty, .zp [hidden] { display: none !important; }   /* .fields label / .zp button set display, which beats [hidden] */
+  #cPull { width: 120px; }
+  .chars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .chars button { flex-direction: column; padding: 10px 4px; }
+  .chars i { width: 26px; height: 26px; border-radius: 50%; background: #3d93ee; }
+  .chars .on { outline: 2px solid var(--acc); }
 </style>
 </head>
 <body>
@@ -206,8 +263,32 @@
   <div class="fields" id="pSets" aria-label="Sesi (fokus / istirahat), maksimal 5"></div>
   <button id="pAdd" type="button" data-i="plus" style="width:100%;margin-top:10px">Tambah sesi</button>
 </section>
+<section class="zp" id="pChat" hidden aria-label="Ngobrol dengan ZIK">
+  <header><span class="ico" data-i="heart" aria-hidden="true"></span><h2>ZIK</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <div id="cLog" aria-live="polite"></div>
+  <form id="cForm"><input type="text" id="cIn" placeholder="Tulis pesan…" autocomplete="off" aria-label="Pesan"><button class="primary" style="flex:none">Kirim</button></form>
+  <div class="fields">
+    <label>Penyedia <select id="cProv" aria-label="Penyedia AI"></select></label>
+    <label id="cKeyRow">API key <span><input type="password" id="cKey" spellcheck="false" placeholder="tempel di sini" autocomplete="off"><button class="x" type="button" id="cKeyGet" title="Ambil API key" aria-label="Ambil API key">↗</button></span></label>
+    <label>Model <span><select id="cModel" aria-label="Model"></select><button class="x" type="button" id="cRefresh" title="Muat ulang daftar model" aria-label="Muat ulang daftar model">⟳</button></span></label>
+    <div id="cSetup">
+      <button type="button" id="cInstall" style="width:100%;margin:8px 0">Pasang &amp; jalankan Ollama</button>
+      <label id="cPullRow">Unduh model <span><select id="cPull" aria-label="Model untuk diunduh"></select><button type="button" id="cPullGo">Unduh</button></span></label>
+    </div>
+    <p id="cStat" aria-live="polite"></p>
+    <label>Jalankan perintah tanpa tanya <input type="checkbox" id="cAuto" role="switch"></label>
+  </div>
+</section>
+<section class="zp sm" id="pChar" hidden aria-label="Karakter">
+  <header><span class="ico" data-i="heart" aria-hidden="true"></span><h2>Karakter</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <div class="chars" id="chList"></div>
+  <button id="chPick" type="button" style="width:100%;margin-top:10px">Pakai gambar sendiri…</button>
+  <input type="file" id="chFile" accept="image/*" hidden>
+</section>
 <script src="mascot.js"></script>
 <script src="lyrics.js"></script>
+<script src="emotion.js"></script>
+<script src="ai.js"></script>
 <script src="zik.js"></script>
 <script type="module" src="renderer.js"></script>
 </body>

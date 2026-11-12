@@ -1,5 +1,6 @@
 // ZIK native shell: one transparent click-through window over the work area. The UI (../ui) does everything
-// else; this side only feeds it what a WebView can't get: cursor position, now-playing, system-audio levels.
+// else; this side feeds it what a WebView can't get (cursor position, now-playing, system-audio levels) and gives
+// the AI its hands (tools.rs: model servers + a shell).
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{thread, time::Duration};
@@ -9,9 +10,11 @@ use tauri::{Emitter, Manager, WebviewWindow};
 mod audio;
 #[cfg(windows)]
 mod media;
+mod tools;
 
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![tools::http_get, tools::http_stream, tools::run_command, bg_luma])
         .setup(|app| {
             let win = app.get_webview_window("main").expect("main window");
             // ponytail: primary monitor only; one window per monitor if multi-screen matters
@@ -31,6 +34,33 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("error while running ZIK");
+}
+
+/// Brightness (0..1, -1 = unknown) of the screen just above and below a window-relative logical-px rect, so the UI can
+/// pick black or white text over whatever is behind the transparent window. Our own pixels there are transparent.
+#[tauri::command]
+fn bg_luma(w: WebviewWindow, x: f64, y: f64, wd: f64, h: f64) -> f64 {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::Graphics::Gdi::{GetDC, GetPixel, ReleaseDC, CLR_INVALID};
+        let (Ok(p), Ok(s)) = (w.inner_position(), w.scale_factor()) else { return -1.0 };
+        let dc = GetDC(None);
+        let (mut sum, mut n) = (0.0, 0);
+        for i in 0..6 {
+            let px = p.x + ((x + wd * (i as f64 + 0.5) / 6.0) * s) as i32;
+            for py in [y - 10.0, y + h + 10.0] {
+                let c = GetPixel(dc, px, p.y + (py * s) as i32).0;
+                if c == CLR_INVALID { continue }
+                let (r, g, b) = (c & 255, (c >> 8) & 255, (c >> 16) & 255);
+                sum += (0.2126 * r as f64 + 0.7152 * g as f64 + 0.0722 * b as f64) / 255.0;
+                n += 1;
+            }
+        }
+        ReleaseDC(None, dc);
+        if n > 0 { sum / n as f64 } else { -1.0 }
+    }
+    #[cfg(not(windows))]
+    { let _ = (w, x, y, wd, h); -1.0 }
 }
 
 /// While click-through the page gets no mouse events, so stream the cursor (logical px, window-relative)

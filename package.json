@@ -1,13 +1,13 @@
 {
   "name": "zik",
   "productName": "ZIK",
-  "version": "0.3.0",
-  "description": "Maskot Bulu yang menyanyikan lirik dari lagu yang sedang diputar",
+  "version": "1.0.0",
+  "description": "Maskot desktop ber-AI: ngobrol, menjalankan tugas di PC, menyanyikan lirik lagu yang sedang diputar, dan bisa ganti karakter",
   "scripts": {
     "start": "tauri dev",
     "dist": "tauri build",
     "tauri": "tauri",
-    "test": "node ui/lyrics.js"
+    "test": "node ui/emotion.js && node ui/lyrics.js && node ui/ai.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"

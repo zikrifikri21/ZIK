@@ -2,7 +2,7 @@
 // Settings live in localStorage (the app's own WebView profile); native bits come from src-tauri as events.
 (() => {
   const T = window.__TAURI__, win = T.window.getCurrentWindow(), { listen } = T.event;
-  const DEF = { size: 200, lyrics: true, context: true, offset: 0, drag: true, gravity: true, follow: true, wander: false, beat: true, lyricSize: 16, focusUntil: 0, restUntil: 0, pomo: [{ f: 25, r: 5 }], pomoIdx: 0, isle: null,
+  const DEF = { size: 200, lyrics: true, context: true, offset: 0, drag: true, gravity: true, follow: true, wander: false, beat: true, hands: true, handLyrics: true, lyricSize: 16, char: 'ninuy', charImg: '', aiProvider: 'ollama', aiModel: '', aiKeys: {}, aiAuto: false, focusUntil: 0, restUntil: 0, pomo: [{ f: 25, r: 5 }], pomoIdx: 0, isle: null,
     water: { on: true, cup: 250, goal: 2000, every: 60, from: '08:00', to: '22:00', last: 0 }, waterLog: {} };
   const KEY = 'zik.settings';
   let cfg;
@@ -31,11 +31,18 @@
     const chk = (text, k) => ({ text, checked: cfg[k], action: () => set({ [k]: !cfg[k] }) });
     const sep = { item: 'Separator' }, off = cfg.offset, fl = cfg.focusUntil - Date.now();
     const m = await T.menu.Menu.new({ items: [
+      { text: 'Ngobrol dengan ZIK…', action: () => panel('chat') },
+      { text: 'Ganti karakter…', action: () => panel('char') },
+      sep,
       { text: 'Ukuran maskot & lirik…', action: () => panel('size') },
       { text: 'Pengingat minum…', action: () => panel('water') },
       { text: fl > 0 ? `Pomodoro… (sisa ${Math.ceil(fl / 60000)} mnt)` : 'Pomodoro…', action: () => panel('pomo') },
       sep,
-      chk('Tampilkan lirik', 'lyrics'),
+      { text: 'Lirik', items: [   // satu pilihan: panel di atas maskot, tulisan tangan di samping, atau mati
+        { text: (cfg.lyrics && !cfg.handLyrics ? '● ' : '○ ') + 'Panel di atas maskot', action: () => set({ lyrics: true, handLyrics: false }) },
+        { text: (cfg.lyrics && cfg.handLyrics ? '● ' : '○ ') + 'Tulisan tangan', action: () => set({ lyrics: true, handLyrics: true }) },
+        { text: (!cfg.lyrics ? '● ' : '○ ') + 'Mati', action: () => set({ lyrics: false }) },
+      ] },
       chk('Baris sebelum dan sesudah', 'context'),
       { text: `Waktu lirik (${off > 0 ? '+' : ''}${off.toFixed(2)} dtk)`, items: [
         { text: 'Majukan 0,25 dtk', action: () => set({ offset: off + .25 }) },
@@ -44,6 +51,7 @@
       ] },
       sep,
       chk('Gerak ikut irama lagu', 'beat'),
+      chk('Tangan memperagakan lirik', 'hands'),
       chk('Bisa diangkat dan dilempar', 'drag'),
       chk('Gravitasi (jatuh dan memantul)', 'gravity'),
       chk('Mata ikut kursor', 'follow'),
@@ -61,6 +69,8 @@
     onPanel: (fn) => onPanel.push(fn),
     onMedia: (fn) => listen('media', (e) => fn(e.payload)),
     onAudio: (fn) => listen('audio', (e) => fn(e.payload)),
+    onTempo: (fn) => listen('tempo', (e) => fn(e.payload)),
+    onKey: (fn) => listen('key', (e) => fn(e.payload)),
     lyrics: (media) => window.lyricsFind(media),
     hover: (on) => { ignoring = !on; win.setIgnoreCursorEvents(!on); },
     menu,
