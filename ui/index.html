@@ -130,6 +130,7 @@
 .doodle .ic { fill: #fff; }
 .doodle .eye { transform-box: view-box; transform: scale(.34); }
 .doodle .ar { stroke: #fff; }
+.doodle .mb-hand .hr { display: none; }   /* Doodle: gambar tangan polos, tanpa bulu */
 .doodle .mo { fill: #111116; stroke: #fff; }
 @keyframes ear-wig { 50% { transform: rotate(4deg); } }
   .mascot-bulu.red > svg { filter: hue-rotate(150deg) saturate(1.5) brightness(.95); }
@@ -156,29 +157,29 @@
     :root { --bg: #161c27; --fg: #e8edf6; --mut: #8d99b0; --line: #273144; --soft: #1e2635; --acc: #5ba4ff; --acc-fg: #0b1220; --track: #2a3447;
             --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px rgba(0,0,0,.5); }
   }
-  .zp { position: fixed; z-index: 2147483647; width: 304px; padding: 18px; box-sizing: border-box;
+  .zp { position: fixed; z-index: 2147483647; width: 272px; padding: 14px; box-sizing: border-box;
         background: var(--bg); color: var(--fg); border: 1px solid var(--line); box-shadow: var(--shadow);
-        border-radius: 36px; corner-shape: squircle;
-        font: 13px/1.45 var(--sf); animation: zp-in .18s cubic-bezier(.2,.8,.2,1); }
+        border-radius: 30px; corner-shape: squircle;
+        font: 12px/1.4 var(--sf); animation: zp-in .18s cubic-bezier(.2,.8,.2,1); }
   .zp[hidden] { display: none; }
-  .zp.sm { width: 280px; }
+  .zp.sm { width: 250px; }
   @keyframes zp-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
-  .zp header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  .zp h2 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; flex: 1; }
-  .zp .ico { width: 28px; height: 28px; display: grid; place-items: center; background: var(--soft); border-radius: 11px; corner-shape: squircle; font-size: 15px; }
+  .zp header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .zp h2 { margin: 0; font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; flex: 1; }
+  .zp .ico { width: 24px; height: 24px; display: grid; place-items: center; background: var(--soft); border-radius: 9px; corner-shape: squircle; font-size: 13px; }
   .zp button { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 0; cursor: pointer;
-               border-radius: 14px; corner-shape: squircle; padding: 9px 14px; transition: filter .12s, transform .08s; }
+               border-radius: 12px; corner-shape: squircle; padding: 7px 11px; transition: filter .12s, transform .08s; }
   .zp button:hover { filter: brightness(.96); } .zp button:active { transform: scale(.97); }
   .zp button:focus-visible, .zp input:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
   .zp button, .zp .ico { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
   .zp svg { width: 14px; height: 14px; flex: none; }
-  .zp .ico svg { width: 15px; height: 15px; }
+  .zp .ico svg { width: 13px; height: 13px; }
   .zp .x svg { width: 13px; height: 13px; }
   .zp .ico { color: var(--acc); }
   /* .mascot-bulu prefix: beats mascot.js's own `.mascot-bulu svg { width: 100% }` */
   .mascot-bulu .mb-bubble svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; color: #2f7fe0; }
   .mascot-bulu .zl span svg { display: inline; width: 13px; height: 13px; vertical-align: -2px; }
-  .zp .x { width: 28px; height: 28px; padding: 0; border-radius: 50%; color: var(--mut); background: transparent; font-size: 14px; }
+  .zp .x { width: 24px; height: 24px; padding: 0; border-radius: 50%; color: var(--mut); background: transparent; font-size: 14px; }
   .zp .x:hover { background: var(--soft); color: var(--fg); filter: none; }
   .zp .primary { background: var(--acc); color: var(--acc-fg); flex: 1; }
   .zp input[type=range] { flex: 1; accent-color: var(--acc); }
@@ -186,7 +187,7 @@
   .zp .row { display: flex; align-items: center; gap: 12px; }
 
   .hero { display: flex; align-items: baseline; justify-content: space-between; }
-  .hero b { font-size: 30px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .hero b { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
   .hero small { color: var(--mut); font-size: 13px; margin-left: 4px; }
   .pill { font-weight: 650; font-size: 12px; color: var(--acc); background: var(--soft); padding: 3px 9px; border-radius: 999px; }
   .bar { height: 10px; background: var(--track); border-radius: 999px; overflow: hidden; margin: 10px 0 14px; }
@@ -200,7 +201,7 @@
   .week .today i { background: var(--acc); }
   .week span { font-size: 10.5px; color: var(--mut); padding-bottom: 6px; }
   .fields { margin-top: 12px; border-top: 1px solid var(--line); }
-  .fields label { white-space: nowrap; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .fields label { white-space: nowrap; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
   .fields label:last-child { border-bottom: 0; padding-bottom: 0; }
   .fields span { display: flex; align-items: center; gap: 6px; color: var(--mut); }
   .fields input[type=number], .fields input[type=time], .zp input[type=text] { font: inherit; font-weight: 600; color: var(--fg); background: var(--soft); border: 1px solid transparent;
@@ -215,9 +216,9 @@
   .fields input[type=checkbox]:checked::after { transform: translateX(16px); }
 
   /* chat with the AI + character picker */
-  #pChat { width: 340px; }
-  #cLog { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; margin-bottom: 10px; }
-  #cLog p { margin: 0; padding: 7px 11px; max-width: 88%; align-self: flex-start; background: var(--soft); border-radius: 14px; corner-shape: squircle; white-space: pre-wrap; overflow-wrap: anywhere; }
+  #pChat { width: 308px; }
+  #cLog { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; margin-bottom: 10px; }
+  #cLog p { margin: 0; padding: 6px 10px; max-width: 88%; align-self: flex-start; background: var(--soft); border-radius: 14px; corner-shape: squircle; white-space: pre-wrap; overflow-wrap: anywhere; }
   #cLog .me { align-self: flex-end; background: var(--acc); color: var(--acc-fg); }
   #cLog .err { color: #d6453d; }
   #cLog .ask { font: 12px/1.4 ui-monospace, Consolas, monospace; }
@@ -233,6 +234,40 @@
   .chars button { flex-direction: column; padding: 10px 4px; }
   .chars i { width: 26px; height: 26px; border-radius: 50%; background: #3d93ee; }
   .chars .on { outline: 2px solid var(--acc); }
+
+  /* right-click menu: same squircle card as the panels; submenus hang off the right (left when .flip) */
+  .zm { position: fixed; z-index: 2147483647; min-width: 192px; padding: 6px; box-sizing: border-box; background: var(--bg); color: var(--fg);
+        border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 22px; corner-shape: squircle; font: 12px/1.4 var(--sf);
+        animation: zp-in .14s cubic-bezier(.2,.8,.2,1); }
+  .zm[hidden] { display: none; }
+  .zm hr { border: 0; border-top: 1px solid var(--line); margin: 4px 6px; }
+  .zm .mi { position: relative; display: flex; align-items: center; gap: 4px; width: 100%; padding: 6px 10px 6px 4px; font: inherit; font-weight: 550; color: var(--fg);
+        background: transparent; border: 0; border-radius: 14px; corner-shape: squircle; text-align: left; cursor: pointer; white-space: nowrap; }
+  .zm .mi:hover { background: var(--soft); }
+  .zm .mi i { width: 18px; text-align: center; font-style: normal; color: var(--acc); flex: none; }
+  .zm .mi span { flex: 1; }
+  .zm .mi em { font-style: normal; color: var(--mut); margin-left: 12px; }
+  .zm .sm { display: none; position: absolute; top: -9px; left: calc(100% - 4px); animation: none; }
+  .zm.flip .sm { left: auto; right: calc(100% - 4px); }
+  .zm .mi.sub:hover > .sm { display: block; }
+  .zm .mr { display: flex; justify-content: space-around; gap: 4px; padding: 2px 4px; }
+  .zm .mr button { width: 40px; height: 32px; display: grid; place-items: center; padding: 0; color: var(--fg); background: var(--soft); border: 0; border-radius: 14px; corner-shape: squircle; cursor: pointer; }
+  .zm .mr button:hover { filter: brightness(.94); }
+  .zm .mr svg { width: 17px; height: 17px; }
+
+  /* WebP + WhatsApp panels, shortcut buttons, mic */
+  .zp .hint { margin: 0 0 12px; color: var(--mut); font-size: 12px; }
+  .zp .stat { margin: 10px 0 0; color: var(--mut); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .zp .stat:empty { display: none; }
+  .zp .kbd { font: 600 12px/1 ui-monospace, Consolas, monospace; padding: 7px 10px; white-space: nowrap; }
+  .zp .fields input[type=range] { width: 110px; flex: none; }
+  .zp .fields output { min-width: 28px; }
+  #pWa { width: 284px; }
+  .zp .qr { display: grid; place-items: center; margin-bottom: 4px; }
+  .zp .qr img { width: 236px; height: 236px; border-radius: 14px; background: #fff; }
+  #cMic { flex: none; padding: 9px 11px; }
+  #cMic.rec { background: #d6453d; color: #fff; animation: rec 1s ease-in-out infinite; }
+  @keyframes rec { 50% { opacity: .55; } }
 </style>
 </head>
 <body>
@@ -266,7 +301,7 @@
 <section class="zp" id="pChat" hidden aria-label="Ngobrol dengan ZIK">
   <header><span class="ico" data-i="heart" aria-hidden="true"></span><h2>ZIK</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
   <div id="cLog" aria-live="polite"></div>
-  <form id="cForm"><input type="text" id="cIn" placeholder="Tulis pesan…" autocomplete="off" aria-label="Pesan"><button class="primary" style="flex:none">Kirim</button></form>
+  <form id="cForm"><input type="text" id="cIn" placeholder="Tulis pesan…" autocomplete="off" aria-label="Pesan"><button type="button" id="cMic" data-i="mic" aria-label="Bicara dengan ZIK" title="Bicara (mikrofon)"></button><button class="primary" style="flex:none">Kirim</button></form>
   <div class="fields">
     <label>Penyedia <select id="cProv" aria-label="Penyedia AI"></select></label>
     <label id="cKeyRow">API key <span><input type="password" id="cKey" spellcheck="false" placeholder="tempel di sini" autocomplete="off"><button class="x" type="button" id="cKeyGet" title="Ambil API key" aria-label="Ambil API key">↗</button></span></label>
@@ -275,6 +310,11 @@
       <button type="button" id="cInstall" style="width:100%;margin:8px 0">Pasang &amp; jalankan Ollama</button>
       <label id="cPullRow">Unduh model <span><select id="cPull" aria-label="Model untuk diunduh"></select><button type="button" id="cPullGo">Unduh</button></span></label>
     </div>
+    <label>Pintasan bicara <span><button type="button" class="kbd" id="vKey"></button><button class="x" type="button" id="vKeyOff" aria-label="Matikan pintasan bicara">×</button></span></label>
+    <label>Dengarkan kata kunci "zik" <input type="checkbox" id="vWake" role="switch"></label>
+    <p class="stat" id="vWakeNote" hidden>Butuh API key Groq (gratis) atau OpenAI untuk mengenali kata kunci.</p>
+    <label>Bacakan semua jawaban <input type="checkbox" id="vSpeak" role="switch"></label>
+    <label>Bahasa suara <select id="vLang" aria-label="Bahasa suara"><option value="id-ID">Indonesia</option><option value="en-US">English (US)</option></select></label>
     <p id="cStat" aria-live="polite"></p>
     <label>Jalankan perintah tanpa tanya <input type="checkbox" id="cAuto" role="switch"></label>
   </div>
@@ -285,10 +325,29 @@
   <button id="chPick" type="button" style="width:100%;margin-top:10px">Pakai gambar sendiri…</button>
   <input type="file" id="chFile" accept="image/*" hidden>
 </section>
+<section class="zp" id="pWebp" hidden aria-label="Kompres ke WebP">
+  <header><span class="ico" data-i="image" aria-hidden="true"></span><h2>Kompres ke WebP</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <p class="hint">Pilih satu atau banyak gambar di Explorer atau desktop, lalu tekan pintasan di bawah. ZIK membuat versi .webp di sebelahnya; gambar aslinya tidak diubah.</p>
+  <div class="fields">
+    <label>Pintasan <span><button type="button" class="kbd" id="wpKey"></button><button class="x" type="button" id="wpKeyOff" aria-label="Matikan pintasan">×</button></span></label>
+    <label>Kualitas <span><input type="range" id="wpQ" min="40" max="100" step="5" aria-label="Kualitas WebP"><output id="wpQOut"></output></span></label>
+    <label>Asli ke Recycle Bin <input type="checkbox" id="wpDel" role="switch"></label>
+  </div>
+  <button id="wpPick" class="primary" type="button" data-i="image" style="width:100%;margin-top:12px">Pilih gambar…</button>
+  <p class="stat" id="wpStat" aria-live="polite"></p>
+</section>
+<section class="zp sm" id="pWa" hidden aria-label="WhatsApp">
+  <header><span class="ico" data-i="chat" aria-hidden="true"></span><h2>WhatsApp</h2><button class="x" type="button" aria-label="Tutup" data-i="close"></button></header>
+  <p class="hint">Tautkan WhatsApp supaya ZIK bisa mengunduh file, mengirim pesan, dan menurut perintah suara seperti "zik download file terakhir dari grup A". Pengiriman selalu minta izin dulu.</p>
+  <div class="qr"><img id="waQr" alt="Kode QR untuk menautkan WhatsApp" hidden></div>
+  <div class="btns"><button class="primary" id="waGo" type="button">Hubungkan</button><button id="waOut" type="button" hidden style="flex:1">Putuskan</button></div>
+  <p class="stat" id="waStat" aria-live="polite"></p>
+</section>
 <script src="mascot.js"></script>
 <script src="lyrics.js"></script>
 <script src="emotion.js"></script>
 <script src="ai.js"></script>
+<script src="webp.js"></script>
 <script src="zik.js"></script>
 <script type="module" src="renderer.js"></script>
 </body>

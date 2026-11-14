@@ -179,9 +179,9 @@
     ['self', /^(i|i'm|im|i'll|i've|i'd|me|my|mine|myself|aku|ku|saya|daku|gue|gua|kulo|awakku)$/],
     ['you', /^(you|you're|youre|you'll|your|yours|u|kamu|kau|engkau|dirimu|dikau|lo|lu|mu|kowe|sliramu|awakmu|panjenengan|sampeyan)$/],
     ['we', /^(we|we're|us|our|ours|kita|kami)$/],
-    ['no', /^(no|not|never|don't|dont|can't|cant|won't|wont|nope|tidak|tak|nggak|gak|enggak|jangan|bukan|ora|ra|ojo|dudu)$/],
+    ['no', /^(no|not|never|nope|tidak|tak|nggak|gak|enggak|jangan|bukan|ora|ojo|dudu)$/],   // bukan can't/don't/won't: itu bukan penolakan
     ['one', /^(one|first|number|satu|pertama|nomor)$/],
-    ['wait', /^(wait|stop|stay|tunggu|berhenti|tetap|enteni|ngenteni)$/],
+    ['wait', /^(wait|stop|tunggu|berhenti|enteni|ngenteni)$/],
     ['wave', /^(hello|hi|hey|bye|goodbye|halo|hai|dadah|selamat)$/],
     ['heart', /^(hearts?|jantung)$/],   // bentuk hati di dada
     ['love', /^(lov|cinta|sayang|kasih|hati|tresn|atiku|atimu)/],
@@ -197,11 +197,21 @@
     ['shh', /^(secret|quiet|silent|shh|whisper|rahasia|diam|sst|bisik)$/],
     ['look', /^(look|see|saw|watch|eyes?|lihat|liat|melihat|tatap|mata)$/],
     ['hug', /^(hold|hug|hugs|embrace|together|peluk|dekap|bersama|genggam)$/],
-    ['why', /^(why|how|what|where|who|when|kenapa|mengapa|bagaimana|gimana|dimana|siapa|kapan|kenopo|ngopo|piye|sopo)$/],
+    ['why', /^(why|kenapa|mengapa|kenopo|ngopo)$/],
     ['go', /^(go|gone|leave|left|run|running|pergi|lari|tinggalkan|berlalu|lungo|minggat|ninggal)$/],
     ['sleep', /^(sleep|dream|dreams|dreaming|night|tidur|mimpi|malam)$/],
     ['dance', /^(dance|dancing|party|jump|jumping|joget|menari|lompat|pesta|goyang|jogetan)$/],
   ];
+  // gestur kata per baris: paling banyak 2, kata bermakna didahulukan dari kata ganti (aku/kamu/kita), berjarak >= 3 kata, supaya
+  // tangan tidak gonta-ganti di tiap kata. → indeks kata yang boleh memicu gestur
+  const PRON = ['self', 'you', 'we'];
+  const gestPlan = (W) => {
+    const NEG = /^(can't|cant|cannot|don't|dont|won't|wont|ain't|aint|never|not|tidak|tak|nggak|gak|jangan)$/;   // "can't wait" bukan "tunggu"
+    const gs = W.map((w, i) => ({ i, g: w.n ? gestOf(w.lw) : '' })).filter((x) => x.g && !(x.g !== 'no' && x.i > 0 && NEG.test(W[x.i - 1].text.toLowerCase()))), pick = [];
+    for (const x of [...gs.filter((x) => !PRON.includes(x.g)), ...gs.filter((x) => PRON.includes(x.g))])
+      if (pick.length < 2 && !pick.some((q) => Math.abs(q.i - x.i) < 3)) pick.push(x);
+    return pick.map((x) => x.i);
+  };
   const gestOf = (lw) => (GEST_RX.find(([, rx]) => rx.test(lw)) || [])[0] || '';
   // tangan istirahat per emosi (kiri; kanan = cermin)
   const FIDGET = ['wave', 'think', 'look', 'yes', 'dance', 'shh'];
@@ -210,10 +220,68 @@
     disgust: { L: [40, 326, 70, 'fist'], R: [380, 226, -70, 'open'] },   // satu tangan mendorong "ih"
     envy: { L: [262, 312, -8, 'fist'], R: mir([262, 312, -8, 'fist']) },   // bersedekap
     ennui: { L: [46, 340, 70, 'fist'], R: [268, 312, -118, 'fist'] } };   // dagu ditopang
-  // satu sarung tangan kartun, jari menunjuk ke +x: manset, 4 jari (open), telunjuk (point), telapak, jempol
-  const HAND = '<g class="mb-hand" data-p="fist"><rect x="-36" y="-12" width="16" height="24" rx="6"/>' +
-    '<g class="hp-open">' + [-40, -14, 12, 38].map((a) => `<rect x="10" y="-6.5" width="32" height="13" rx="6.5" transform="rotate(${a})"/>`).join('') + '</g>' +
-    '<rect class="hp-point" x="8" y="-16" width="36" height="13" rx="6.5"/><ellipse rx="22" ry="19"/>' +
+  // koreografi saat bernyanyi: tiap rutinitas = (fase ayunan p, waktu tt) → [tangan kiri, tangan kanan?] ([x, y, sudut, pose]; kanan kosong = cermin
+  // kiri). Fase p dikunci ke ketukan (sin(p) = ±1 tepat di ketukan, bt = 1 di ketukan). Dipilih menurut emosi lirik; kata lirik
+  // (GEST) tetap menimpanya sesaat. spin = badan berputar 360° tiap 4 ketukan.
+  const bt = (p) => Math.abs(S2(p)), up = (v) => Math.max(0, v);
+  const CHORE = {
+    kheart: (p) => [[84 + S2(p) * 6, 150 - bt(p) * 14, -62, 'kheart']],                                       // jari love Korea di samping kepala
+    heartTop: (p) => [[146, 62 - bt(p) * 6, -26, 'open']],                                                    // dua tangan membentuk hati di atas kepala
+    phone: (p) => [[46, 306, 70, 'fist'], [338, 196 - bt(p) * 6, 172 + S2(p) * 6, 'phone']],                  // satu tangan menelepon di telinga
+    shaka: (p) => [[72, 238 - bt(p) * 8, -24 + S2(p) * 22, 'phone']],                                         // "hang loose", dua tangan
+    armsUp: (p) => [[58 + S2(p) * 16, 118 - bt(p) * 10, -100 + S2(p) * 16, 'open'], [342 + S2(p) * 16, 118 - bt(p) * 10, -80 + S2(p) * 16, 'open']],   // tangan naik, melambai
+    clap: (p) => { const o = 6 + 44 * (1 - bt(p)); return [[172 - o, 314, 0, 'open']]; },                      // tepuk tangan, bertemu di ketukan
+    peace: (p) => [[46, 306, 70, 'fist'], [338, 170 - bt(p) * 8, -66 + S2(p) * 8, 'peace']],                  // salam dua jari
+    pump: (p) => [[40, 304 - 170 * up(S2(p)), -90, 'fist'], [360, 304 - 170 * up(-S2(p)), -90, 'fist']],      // tinju naik bergantian
+    disco: (p) => { const u = (S2(p / 2) + 1) / 2; return [[46, 306, 70, 'fist'], [352 - 92 * u, 112 + 188 * u, -55 + 190 * u, 'point']]; },   // telunjuk menyapu ala disko
+    twirl: (p) => [[34, 236, -8 + S2(p) * 14, 'open']],                                                       // tangan terentang, badan berputar
+    slowWave: (p) => [[60 + S2(p / 2) * 18, 138, -105 + S2(p / 2) * 14, 'open'], [340 + S2(p / 2) * 18, 138, -75 + S2(p / 2) * 14, 'open']],   // ayun pelan di atas kepala
+    chest: (p) => [[160, 300 + S2(p / 2) * 4, -14, 'fist']],                                                  // tangan di dada
+    hug: (p) => [[262, 312 + S2(p / 2) * 3, -8, 'fist']],                                                     // memeluk diri sendiri
+    rockFist: (p) => [[56, 250 - 40 * bt(p), -82, 'fist']],                                                   // tinju mengentak
+  };
+  // Rutinitas dipilih dari MAKNA baris lirik (kata kunci), bukan acak: "call me" → menelepon, "love" → jari love, "dance" → berputar...
+  // Baris tanpa kata kunci: bagian lagu yang keras (reff) → gerakan ramai sesuai emosi (CH_LOUD), bagian tenang → tangan istirahat
+  // yang hanya ikut ketukan. Urutan = prioritas.
+  const CH_RX = [
+    ['peace', /\b(best friends?|bestie|sahabat)\b/],   // sebelum kata sayang: "best friend, baby" tetap gerakan yang sama sepanjang reff
+    ['phone', /\b(call(s|ed|ing)?|phone|telephone|dial|hotline|telepon|telpon|nelpon|menelepon|hubungi)\b/],
+    ['twirl', /\b(danc(e|ing|er)|spin(ning)?|twirl|party|joget|berjoget|menari|berdansa|dansa|pesta|goyang|putar|berputar)\b/],
+    ['kheart', /\b(lov(e|es|ed|ing|er)|cinta|mencinta\w*|sayang|kasih|rindu|kangen|miss(ing)?|baby|babe|darling|honey|kiss|cium|sweet|manis|cantik|beautiful|pretty)\b/],
+    ['hug', /\b(alone|lonely|lonesome|sendiri|sendirian|sepi|kesepian|cold|dingin|hold|peluk)\b/],
+    ['chest', /\b(cry(ing)?|cried|tears?|hurt(s|ing)?|pain|break(s|ing)?|broke|broken|sorry|goodbye|nangis|menangis|sakit|luka|patah|maaf|pergi|hilang|lost|gone|late|terlambat)\b/],   // patah hati menang atas "heart"
+    ['heartTop', /\b(heart|hearts|jantung|hatiku|hatimu|forever|selamanya|marry|menikah)\b/],
+    ['rockFist', /\b(fight(ing)?|strong(er)?|power|fire|burn(ing)?|hate|angry|mad|never|lawan|kuat|api|bakar|benci|marah)\b/],
+    ['armsUp', /\b(fly(ing)?|sky|high(er)?|free(dom)?|alive|shine|sun|light|sing(ing)?|shout|yeah|woo+|whoa|great|amazing|awesome|hebat|keren|terbang|langit|tinggi|bebas|hidup|bersinar|matahari|cahaya|nyanyi|bernyanyi|teriak)\b/],
+    ['peace', /\b(peace|friends?|smil(e|ing)|happy|fun|okay|alright|damai|teman|sahabat|senyum|tersenyum|bahagia|senang|asik|asyik)\b/],
+    ['clap', /\b(clap|applause|everybody|together|celebrate|tepuk|semua|bersama|rayakan)\b/],
+  ];
+  const lineChore = (t) => { t = String(t || '').toLowerCase(); return (CH_RX.find(([, rx]) => rx.test(t)) || [''])[0]; };
+  const CH_LOUD = { happy: ['armsUp', 'clap', 'pump'], love: ['slowWave', 'armsUp'], sad: ['slowWave'], angry: ['pump', 'rockFist'] };
+  // satu tangan berbulu, jari menunjuk ke +x: manset, 4 jari (open), telunjuk (point), telapak, jempol; pose baru: phone (jempol + kelingking,
+  // "telepon"), kheart (jempol & telunjuk menyilang = jari love Korea), peace (V). Warna = gradien biru bulu badan (var --hfd), jadi ikut filter
+  // karakter lain; helai runcing di tepinya (spikes) memberi kesan berbulu, garis tepi tipis menjaga bentuk jari tetap jelas
+  const spikes = (cx, cy, rx, ry, n, len, a0, a1, seed) => {   // gumpalan bulat kecil di tepi (bukan segitiga runcing): tepi berbulu yang lembut
+    const r = rnd(seed), f = (v) => Math.round(v * 10) / 10; let d = '';
+    for (let i = 0; i < n; i++) {
+      const a = a0 + (a1 - a0) * (i + r() * .6) / n, c = len * (.38 + r() * .2);
+      const x = cx + (rx + len * .1) * Math.cos(a), y = cy + (ry + len * .1) * Math.sin(a);
+      d += `M${f(x - c)} ${f(y)}a${f(c)} ${f(c)} 0 1 0 ${f(2 * c)} 0a${f(c)} ${f(c)} 0 1 0 ${f(-2 * c)} 0Z`;
+    }
+    return `<path class="hr" d="${d}"/>`;
+  };
+  const tip = (x, y, w, h, seed) => spikes(x, y, w, h, 5, 5, -1.5, 1.5, seed);   // helai di ujung jari
+  const HAND = '<g class="mb-hand" data-p="fist"><rect x="-36" y="-12" width="16" height="24" rx="6"/>' + spikes(-29, 0, 9, 12, 10, 6, 1.6, 4.7, 11) +
+    '<g class="hp-open">' + [-40, -14, 12, 38].map((a, i) => `<g transform="rotate(${a})"><rect x="10" y="-6.5" width="32" height="13" rx="6.5"/>${tip(37, 0, 5, 6.5, 20 + i)}</g>`).join('') + '</g>' +
+    '<g class="hp-point"><rect x="8" y="-16" width="36" height="13" rx="6.5"/>' + tip(39, -9.5, 5, 6.5, 31) + '</g>' +
+    '<g class="hp-v">' + [-17, 17].map((a, i) => `<g transform="rotate(${a})"><rect x="8" y="-6" width="38" height="12" rx="6"/>${tip(41, 0, 5, 6, 60 + i)}</g>`).join('') + '</g>' +
+    '<ellipse rx="22" ry="19"/>' + spikes(0, 0, 22, 19, 22, 6, .9, 5.4, 41) +
+    '<g class="cf"><circle cx="15" cy="-9" r="7"/><circle cx="19" cy="0" r="7"/><circle cx="15" cy="9" r="7"/></g>' +
+    '<g class="pt"><rect x="0" y="-6" width="34" height="12" rx="6" transform="rotate(-58)"/><g transform="rotate(-58)">' + tip(29, 0, 5, 6, 70) + '</g></g>' +
+    '<g class="pk"><rect x="0" y="-5" width="28" height="10" rx="5" transform="rotate(52)"/></g>' +
+    '<g class="kt"><rect x="4" y="2" width="34" height="11" rx="5.5" transform="rotate(-26 4 2)"/></g>' +
+    '<g class="ki"><rect x="4" y="-13" width="34" height="11" rx="5.5" transform="rotate(26 4 -13)"/></g>' +
+    '<path class="kh" transform="translate(42 -7) scale(.6)" d="M0 9C-20-4-13-20 0-9C13-20 20-4 0 9Z"/>' +
     '<g class="hp-poke"><rect x="4" y="-8.5" width="22" height="17" rx="8.5"/><circle cx="25" r="12.5"/><path class="nail" d="M29 -6.5a7 7 0 0 1 0 13"/></g>' +
     '<ellipse class="to" cx="-2" cy="-19" rx="7.5" ry="11" transform="rotate(-55 -2 -19)"/><ellipse class="tp" cx="6" cy="5" rx="11" ry="7"/></g>';
   const vowelsOf = (t) => { const v = syllables(t); return v.length ? v : ['a', 'i', 'u', 'e', 'o']; };
@@ -242,9 +310,12 @@
     '.mb-lyric:after{content:"";position:absolute;left:50%;top:100%;margin-left:-7px;border:7px solid transparent;border-top-color:rgba(16,28,60,.92)}' +
     '.mb-lyric.show{opacity:1;transform:translate(-50%,-2px) scale(1)}.mb-lyric.swap{animation:mbswap .22s}@keyframes mbswap{from{opacity:.3;transform:translate(-50%,4px) scale(.93)}}' +
     '.mascot-bulu.saying .mb-lyric{opacity:0}' +
-    '.mb-hand rect,.mb-hand ellipse,.mb-hand circle{fill:var(--hf,#fff);stroke:var(--hk,#1d1d26);stroke-width:4.5;stroke-linejoin:round}' +
-    '.mb-hand .hp-open,.mb-hand .hp-point,.mb-hand .hp-poke,.mb-hand .tp,.mb-hand[data-p=point] .to{display:none}.mb-hand .nail{fill:none;stroke:var(--hk,#1d1d26);stroke-width:2.5;stroke-linecap:round}' +
-    '.mb-hand[data-p=poke] .hp-poke,.mb-hand[data-p=open] .hp-open,.mb-hand[data-p=point] .hp-point,.mb-hand[data-p=point] .tp{display:inline}' +
+    '.mb-hand rect,.mb-hand ellipse,.mb-hand circle{fill:var(--hf,var(--hfd,#fff));stroke:var(--hk,#1f5fb8);stroke-width:1.9;stroke-linejoin:round}' +
+    '.mb-hand path.hr{fill:var(--hf,var(--hfd,#fff));stroke:none}.mb-hand .kh{fill:#ff5c8a;stroke:#d63a6c;stroke-width:1.6}' +
+    '.mb-hand .hp-open,.mb-hand .hp-point,.mb-hand .hp-poke,.mb-hand .hp-v,.mb-hand .tp,.mb-hand .pt,.mb-hand .pk,.mb-hand .cf,.mb-hand .kt,.mb-hand .ki,.mb-hand .kh,' +
+    '.mb-hand[data-p=point] .to,.mb-hand[data-p=phone] .to,.mb-hand[data-p=kheart] .to{display:none}.mb-hand .nail{fill:none;stroke:var(--hk,#1f5fb8);stroke-width:2;stroke-linecap:round}' +
+    '.mb-hand[data-p=poke] .hp-poke,.mb-hand[data-p=open] .hp-open,.mb-hand[data-p=point] .hp-point,.mb-hand[data-p=point] .tp,.mb-hand[data-p=peace] .hp-v,' +
+    '.mb-hand[data-p=phone] .pt,.mb-hand[data-p=phone] .pk,.mb-hand[data-p=phone] .cf,.mb-hand[data-p=kheart] .kt,.mb-hand[data-p=kheart] .ki,.mb-hand[data-p=kheart] .kh{display:inline}' +
     '.mb-hw{position:absolute;left:114%;top:50%;transform:translateY(-50%);width:max-content;white-space:nowrap;font:400 26px/1.1 "Ink Free","Segoe Print","Comic Sans MS",cursive;color:#fff;' +
     'text-shadow:0 0 2px #000,0 0 5px rgba(0,0,0,.7);pointer-events:none;opacity:0;transition:opacity .3s}' +
     '.mb-hw>div{display:flex;gap:0 .3em}.mb-hw.ink{color:#15151c;text-shadow:0 0 2px #fff,0 0 5px rgba(255,255,255,.8)}.mb-hw.left{left:auto;right:104%}.mb-hw.show{opacity:1}' +
@@ -340,7 +411,7 @@
     wrap.innerHTML =
       `<svg viewBox="0 0 400 ${VH}" xmlns="http://www.w3.org/2000/svg"><defs>` +
       `<pattern id="${U}-fp" patternUnits="userSpaceOnUse" width="400" height="${VH}"><image class="fpi" width="400" height="${VH}"/></pattern>` +
-      soft('gs', '#0a2a66') + soft('gc', '#ff8fc7') + soft('gw', '#fff') + soft('gb', '#6a97ff') +
+      `<linearGradient id="${U}-hf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78bdff"/><stop offset=".55" stop-color="#4399f2"/><stop offset="1" stop-color="#2a7bdc"/></linearGradient>` + soft('gs', '#0a2a66') + soft('gc', '#ff8fc7') + soft('gw', '#fff') + soft('gb', '#6a97ff') +
       `<radialGradient id="${U}-gi" cx=".56" cy=".58" r=".62"><stop offset=".72" stop-color="#0a3585" stop-opacity="0"/><stop offset=".9" stop-color="#0a3585" stop-opacity=".45"/><stop offset="1" stop-color="#0a3585" stop-opacity=".62"/></radialGradient>` +
       `<radialGradient id="${U}-cl" cx=".38" cy=".28" r=".85"><stop offset="0" stop-color="#32323b"/><stop offset=".5" stop-color="#17171c"/><stop offset="1" stop-color="#060609"/></radialGradient>` +
       `<clipPath id="${U}-ie0"><ellipse class="ie" cx="${CX - EDX}" cy="${EY}" rx="${ERX}" ry="${ER}"/></clipPath><clipPath id="${U}-ie1"><ellipse class="ie" cx="${CX + EDX}" cy="${EY}" rx="${ERX}" ry="${ER}"/></clipPath>` +
@@ -352,7 +423,7 @@
       eyeSvg(0, CX - EDX) + eyeSvg(1, CX + EDX) +
       `<path class="mo" fill="${INK}" stroke="${INK}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0"/><ellipse class="tg" fill="#ff6f91" clip-path="url(#${U}-mc)" opacity="0"/></g>` +
       `<g class="st" opacity="0">${('<path d="' + STAR + '" fill="#ffd23f" stroke="#e8a600" stroke-width="2" stroke-linejoin="round"/>').repeat(5)}</g>` +
-      `</g><g class="hands" opacity="0">${HAND}${HAND}</g><g class="nt"></g><g class="zz" fill="#7aa8ff" font-family="system-ui,sans-serif" font-weight="800" opacity="0"><text x="292" y="110" font-size="28">z</text><text x="316" y="84" font-size="22">z</text><text x="334" y="62" font-size="16">z</text></g></svg>` +
+      `</g><g class="hands" opacity="0" style="--hfd:url(#${U}-hf)">${HAND}${HAND}</g><g class="nt"></g><g class="zz" fill="#7aa8ff" font-family="system-ui,sans-serif" font-weight="800" opacity="0"><text x="292" y="110" font-size="28">z</text><text x="316" y="84" font-size="22">z</text><text x="334" y="62" font-size="16">z</text></g></svg>` +
       '<div class="mb-bubble"></div><div class="mb-lyric"></div><div class="mb-hw"></div>';
     host.appendChild(wrap);
 
@@ -384,7 +455,7 @@
       sy: spr(1, 320, 12), rot: spr(0, 140, 12), lx: spr(0, 200, 22), ly: spr(0, 200, 22),
       ax: 0, ay: 0, hpx: 0, hpy: 0, hvx: 0, hvy: 0, hinit: false, ex: spr(0, 100, 6), ey: spr(0, 100, 6),
       vow: { w: 1, o: .5, r: .5, c: .45 }, vseq: ['a', 'i', 'u', 'e', 'o'], vi: 0, vt: 0, vhold: 0, vforce: 'a',
-      singing: false, bpm: 100, beatPh: 0, beatN: 0, bper: .6, swayPh: 0, swayAmp: 3, dm: 'sway', dmP: 'sway', dmA: 1, en: .5, dance: [0, 0, 0, 0, 0], fx: 0, fy: 0, talk: null, nextFidget: 6, nextDart: 0, dartX: 0, flav: 'happy', lflav: '', dflav: '', words: [], wi: -1, hwN: 0, hwC: -1, gest: { name: '', until: 0 }, handA: 0, hb: 0, smk: 0, handsOn: true, hwOn: true, timed: false, venv: 1, lt0: 0, lt1: 0, lvl: 0, extLvl: 0, extT: -99, prevBase: 'neutral', notes: [], lyr: null,
+      singing: false, bpm: 100, beatPh: 0, beatN: 0, bper: .6, swayPh: 0, swayAmp: 3, dm: 'sway', dmP: 'sway', dmA: 1, en: .5, dance: [0, 0, 0, 0, 0], fx: 0, fy: 0, talk: null, nextFidget: 6, nextDart: 0, dartX: 0, flav: 'happy', lflav: '', dflav: '', words: [], wi: -1, hwN: 0, hwC: -1, gest: { name: '', until: 0 }, ch: '', chFix: false, lineCh: '', gOk: [], hv: 1, hs: 0, handA: 0, hb: 0, smk: 0, handsOn: true, hwOn: true, timed: false, hum: 1, venv: 1, lt0: 0, lt1: 0, lvl: 0, extLvl: 0, extT: -99, prevBase: 'neutral', notes: [], lyr: null,
       vx: 0, vy: 0, falling: false, onGround: false, windup: 0, pendH: 0, lookTX: 0, lookTY: 0, lastPtr: -99, lastAct: performance.now(), nextGlance: 1, nextBlink: 1.5, blinkT: -1, blinkN: 0,
       pivot: FEET, energy: 0, wig: 0, shk: 0, spin: -1, move: null, drag: null, grabbed: false, asleep: false, wanderOn: false, nextWander: 0, tmpUntil: 0, actT: 0,
       base: 'neutral', moodTimer: 0, talkUntil: 0, bubbleTimer: 0, bubbleRes: null, last: performance.now() };
@@ -448,6 +519,13 @@
         const n = ms.filter((x) => x !== S.dm), nx = n[Math.floor(Math.random() * n.length)] || ms[0];
         if (nx !== S.dm) { S.dmP = S.dm; S.dm = nx; S.dmA = 0; }
       }
+      if (!S.chFix) {
+        const cs = S.en > .55 ? CH_LOUD[S.flav] || [] : [];   // S.en = energi lagu (lambat): keras = reff
+        if (S.lineCh) S.ch = S.lineCh;                         // makna baris lirik menang
+        else if (!cs.length) S.ch = '';
+        else if ((S.beatN & 7) === 0 || !cs.includes(S.ch)) { const n = cs.filter((x) => x !== S.ch); S.ch = n[Math.floor(Math.random() * n.length)] || cs[0]; }
+      }
+      if (S.ch === 'twirl' && (S.beatN & 3) === 0 && S.spin < 0 && !S.move && !S.falling) { S.spin = 0; S.jv = Math.min(S.jv, -Math.sqrt(2 * G * U_() * 11 * U_())); }
       if ((S.beatN++ & 1) === 0 || k > 1.2) spawnNote();
     }
     function sing(on, op) {
@@ -458,7 +536,8 @@
       setMood('sing');
     }
     function lyric(text) {
-      S.timed = syllables(text || '').length > 0;
+      S.timed = syllables(text || '').length > 0; S.lineCh = lineChore(text); if (!S.chFix && S.lineCh) S.ch = S.lineCh;
+      S.gOk = S.lineCh || !text ? [] : gestPlan(wordsOf(text));   // baris yang punya rutinitas sendiri tidak diselingi gestur kata
       S.words = text ? wordsOf(text) : []; S.wi = -1; S.hwN = 0; S.hwC = -1; hw.classList.remove('show');
       if (!text) { S.vseq = vowelsOf(''); S.vi = 0; lyr.classList.remove('show'); return; }
       S.vseq = vowelsOf(text); S.vi = 0;
@@ -472,8 +551,8 @@
       const W = S.words; let k = -1;
       for (let j = 0; j < W.length; j++) if (W[j].n && W[j].start <= vi) k = j;
       if (k !== S.wi) {
-        S.wi = k; const g = k >= 0 && gestOf(W[k].lw);
-        if (g) setGest(g, now + Math.max(900, W[k].n * sylDur * 1000 + 500));
+        S.wi = k; const g = k >= 0 && S.gOk.includes(k) && gestOf(W[k].lw);
+        if (g) setGest(g, now + Math.max(1400, W[k].n * sylDur * 1000 + 700));
       }
       if (!S.hwOn) return;
       let added = false;
@@ -506,16 +585,18 @@
         setGest(FIDGET[Math.floor(Math.random() * FIDGET.length)], now + 1400); S.nextFidget = tt + 8 + Math.random() * 10;
       }
       S.handA += ((S.handsOn && !S.asleep ? 1 : 0) - S.handA) * Math.min(1, dt * 6);
-      handsG.setAttribute('opacity', n2(S.handA));
+      const hvis = S.hv < 1 ? Math.max(0, S.hv) ** .5 : 1;
+      handsG.setAttribute('opacity', n2(S.handA * hvis));
       if (S.handA < .01) return;
       handsG.setAttribute('transform', bodyT);
       S.hb = Math.max(0, S.hb - dt * 5);
       const g = (now < S.gest.until && S.gest.g) || (talking && GEST.talk), rest = S.singing ? REST[S.flav] || REST.happy : REST.idle, k = Math.min(1, dt * 14);
+      const cp = !g && S.singing && S.ch && CHORE[S.ch] ? CHORE[S.ch](S.swayPh, tt) : null;
       hands.forEach((h, i) => {
         const own = g && (i ? g.R : g.L);
-        let [x, y, a, p] = own || (Array.isArray(rest) ? (i ? mir(rest) : rest) : i ? rest.R : rest.L);
+        let [x, y, a, p] = own || (cp ? (i ? cp[1] || mir(cp[0]) : cp[0]) : Array.isArray(rest) ? (i ? mir(rest) : rest) : i ? rest.R : rest.L);
         if (!own && !S.singing) y += Math.sin(tt * 2.2 + i) * 3;   // diam: ikut bernapas
-        if (!own && S.singing) {   // istirahat: senang = tangan naik-turun bergantian tiap ketukan, marah = gemetar, sedih = diam
+        if (!own && S.singing && !cp) {   // istirahat: senang = tangan naik-turun bergantian tiap ketukan, marah = gemetar, sedih = diam
           if (S.flav === 'happy' || S.flav === 'love') y -= 16 * S.hb * (((S.beatN + i) & 1) ? 1 : .35);
           if (S.flav === 'angry' || S.flav === 'fear') x += Math.sin(tt * 31 + i) * 2.5;
           if (S.flav === 'embarrassed') x += (i ? 5 : -5) * (1 + Math.sin(tt * 8));
@@ -523,11 +604,12 @@
         }
         if (own && g.wag) a += Math.sin(tt * TAU * g.hz) * g.wag;
         if (own && g.rub) x += Math.sin(tt * 12 + i * 3) * 6;
+        if (S.hv < 1) x = 200 + (x - 200) * Math.max(.05, S.hv);   // tangan ikut berayun melingkar saat badan berputar
         h.x += (x - h.x) * k; h.y += (y - h.y) * k;
         h.a += ((((a - h.a) % 360) + 540) % 360 - 180) * k;   // sudut terdekat
         if (p !== h.p) { h.p = p; h.el.setAttribute('data-p', p); }
         h.pop = Math.max(0, h.pop - dt * 4);
-        const s = 1.45 * (1 + .18 * h.pop) * (p === 'poke' ? 1.15 : 1), flip = Math.cos(h.a * Math.PI / 180) < 0 ? -1 : 1;   // jempol tetap di atas
+        const s = 1.05 * (1 + .18 * h.pop) * (p === 'poke' ? 1.15 : 1), flip = Math.cos(h.a * Math.PI / 180) < 0 ? -1 : 1;   // jempol tetap di atas
         h.el.setAttribute('transform', `translate(${n2(h.x)} ${n2(h.y)}) rotate(${n2(h.a)}) scale(${n2(s)} ${n2(s * flip)})`);
       });
     }
@@ -713,6 +795,7 @@
       if (S.vhold > 0) S.vhold -= dt;
       S.venv = 1;
       const lt = S.lyr && S.timed && S.lyr.i >= 0 ? S.lyr.get() + LEAD : NaN;
+      let vsing = false;   // mulut hanya berbentuk vokal saat ada baris lirik yang sedang dinyanyikan; musik saja = mulut tertutup, badan saja yang goyang
       if (S.singing && S.vhold <= 0 && isFinite(lt)) {
         // suku kata memenuhi durasi baris (penyanyi jarang selesai jauh sebelum baris berikut), maks .75 dtk/suku kata
         // untuk jeda instrumental; suku kata terakhir ditahan 2× lebih lama → kata terakhir tidak muncul terlalu cepat
@@ -720,7 +803,9 @@
         const u = Math.max(0, (lt - S.lt0) / span) * (n + 1), f = u <= n - 1 ? u : n - 1 + (u - n + 1) / 2;
         S.vi = Math.min(n - 1, Math.floor(f)); if (f < n) S.venv = .3 + .7 * Math.sqrt(Math.sin(Math.PI * (f % 1)));
         words(f >= n ? 1e9 : S.vi, span / n, now);
-      } else if (S.singing && S.vhold <= 0 && (S.vt += dt * (S.bpm > 0 ? S.bpm * 2 / 60 : 1 / S.bper)) >= 1) { S.vt -= 1; S.vi = (S.vi + 1) % S.vseq.length; }
+        vsing = f < n;   // suku kata terakhir sudah selesai (jeda panjang sampai baris berikut) → mulut menutup
+      }
+      S.hum += ((S.singing && S.vhold <= 0 && !vsing ? 1 : 0) - S.hum) * Math.min(1, dt * 10);
       if (!(S.singing && isFinite(lt)) && hw.classList.contains('show')) hw.classList.remove('show');
       // gerakan aktif juga mengatur wajah: arah mata, senyum miring, geleng
       const gx = now < S.gest.until && S.gest.g;
@@ -773,8 +858,11 @@
       let spinA = 0;
       if (S.spin >= 0) { S.spin += dt / .75; const u = Math.min(1, S.spin); spinA = (u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2) * 360; if (S.spin >= 1) S.spin = -1; }
       const sy = S.sy.x, sx = 1 + (1 - sy) * .85 + Math.sin(tt * 28) * .07 * S.wig;
-      const rot = S.rot.x + spinA + Math.sin(tt * 4.5) * 11 * cur.dizzy + Math.sin(tt * 32) * 12 * S.shk * S.shk + Math.sin(tt * 28 + 1) * 5 * S.wig;
-      const pivTarget = S.grabbed ? 70 : (S.spin >= 0 ? 190 : FEET);
+      const rot = S.rot.x + Math.sin(tt * 4.5) * 11 * cur.dizzy + Math.sin(tt * 32) * 12 * S.shk * S.shk + Math.sin(tt * 28 + 1) * 5 * S.wig;
+      // putaran 3D (sumbu tegak): badan bulat tetap, wajah bergeser ke samping, menyempit lalu hilang di belakang dan muncul dari sisi lain
+      const th = spinA * Math.PI / 180, tcs = S.spin >= 0 ? Math.cos(th) : 1, tsn = S.spin >= 0 ? Math.sin(th) : 0;
+      S.hv = tcs; S.hs = tsn;
+      const pivTarget = S.grabbed ? 70 : FEET;
       S.pivot += (pivTarget - S.pivot) * (1 - Math.exp(-dt * 14));
       S.energy += (Math.min(1, Math.abs(S.jv) / (900 * U2) + S.wig + S.shk + (S.move || S.falling ? .5 : 0)) - S.energy) * Math.min(1, dt * 6);
 
@@ -783,7 +871,8 @@
       // wajah: menoleh (geser + sedikit menyempit) / menunduk; dari gerakan tari + pose emosi + sedikit ikut arah mata
       const tfx = dFx + ((fl && fl.fx) || 0) + S.lx.x * 7, tfy = dFy + ((fl && fl.fy) || 0) + S.ly.x * 5, kf = Math.min(1, dt * 12);
       S.fx += (tfx - S.fx) * kf; S.fy += (tfy - S.fy) * kf;
-      faceG.setAttribute('transform', `translate(${n2(S.fx)} ${n2(S.fy)}) translate(200 ${EY}) scale(${n2(1 - Math.abs(S.fx) * .004)} 1) translate(-200 ${-EY})`);
+      faceG.setAttribute('transform', `translate(${n2(S.fx + tsn * 128)} ${n2(S.fy)}) translate(200 ${EY}) scale(${n2(Math.max(.001, (1 - Math.abs(S.fx) * .004) * (S.spin >= 0 ? Math.max(0, tcs) : 1)))} 1) translate(-200 ${-EY})`);
+      faceG.setAttribute('opacity', tcs > .06 ? 1 : 0);
       const bodyT = `translate(${n2(dX)} ${n2(jy + dY)}) translate(200 ${n2(S.pivot)}) rotate(${n2(rot)}) scale(${n2(sx * 1000) / 1000} ${n2(sy * 1000) / 1000}) translate(-200 ${n2(-S.pivot)})`;
       bodyG.setAttribute('transform', bodyT);
       drawHands(bodyT, dt, tt, now);
@@ -875,8 +964,9 @@
       const talking = now < S.talkUntil;
       let mA = cur.mA, mC = cur.mC, mO = cur.mO;
       if (talking) { mA = 1; mC = .4; mO = .15 + .5 * Math.abs(Math.sin(tt * 13) * Math.sin(tt * 5.3 + 1)); }
-      const vp = !talking && (S.singing || S.vhold > 0);
-      if (vp) { mA = 1; mC = S.vow.c; mO = S.vow.o * (.35 + .65 * S.lvl); }
+      const vp = !talking && ((S.singing && S.hum < .98) || S.vhold > 0);
+      if (vp) { mA = 1; mC = S.vow.c; mO = S.vow.o * (.35 + .65 * S.lvl) * (S.vhold > 0 ? 1 : 1 - S.hum); }
+      else if (S.singing && !talking) mO = 0;   // bersenandung / instrumental: senyum tertutup, bukan mulut menganga (mood 'sing')
       const w = vp ? 20 * S.vow.w : 20 * cur.mW * (1 + .25 * mO), y0 = 292, hh = vp ? 21 : 16;
       let md;
       if (vp && mO > .02) {   // bentuk bulat/lonjong untuk vokal
@@ -907,7 +997,8 @@
     const api = {
       el: wrap, svg,
       mood: setMood, blink() { S.blinkT = 0; }, look, lookDir(nx, ny) { S.lookTX = clamp(nx, -1, 1); S.lookTY = clamp(ny, -1, 1); S.lastPtr = performance.now(); },
-      jump, spin() { jump(90); S.spin = 0; }, shake() { S.shk = 1; }, wiggle() { S.wig = 1; }, squish() { S.sy.x = .7; S.sy.v = 0; },
+      jump, spin() { jump(90); S.spin = 0; }, choreo(name) { S.ch = name || ''; S.chFix = !!name; },   // choreo('kheart'): pakai satu rutinitas terus (uji); kosong = otomatis lagi
+       shake() { S.shk = 1; }, wiggle() { S.wig = 1; }, squish() { S.sy.x = .7; S.sy.v = 0; },
       say, moveTo, stop() { if (S.move) { S.move.res(); S.move = null; } },
       moveToEl(e) { const b = e.getBoundingClientRect(); return moveTo(b.left + b.width / 2, b.top); },
       wander(on) { S.wanderOn = on !== false; S.nextWander = S.t + .3; if (!S.wanderOn && S.move) api.stop(); },
@@ -935,5 +1026,5 @@
     return out.sort((a, b) => a.t - b.t);
   }
 
-  return { create, parseLRC, syllables, wordsOf, gestOf, moods: Object.keys(MOODS) };
+  return { create, parseLRC, syllables, wordsOf, gestOf, lineChore, gestPlan, moods: Object.keys(MOODS) };
 }));

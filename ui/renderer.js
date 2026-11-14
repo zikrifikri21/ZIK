@@ -9,9 +9,26 @@ const ICON = {
   resize: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 8L16 16" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M17 3.23663C17.7506 3.22596 20.2363 2.70959 20.7634 3.23663C21.2904 3.76367 20.774 6.24941 20.7634 7" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.23663 17C3.22596 17.7506 2.70959 20.2363 3.23663 20.7634C3.76367 21.2904 6.24941 20.774 7 20.7634" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M14.998 9.00737L20.3838 3.62158" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M3.62598 20.3741L9.01172 14.9883" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
   timer: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="13" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M12 9.5V13L14 15M10 2H14M12 2V5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
   noLyrics: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M17 17L21 21" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19C15.4183 19 19 15.4183 19 11Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/><path d="M8 8L11 11M11 11L14 14M11 11L14 8M11 11L8 14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
+  // the ones below are drawn by hand in the same 24px stroke style
+  prev: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 5V19M19 5.5L9 12L19 18.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"/></svg>',
+  next: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 5V19M5 5.5L15 12L5 18.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"/></svg>',
+  play: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 4.8V19.2L19 12Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.5 5V19M15.5 5V19" stroke="currentColor" stroke-linecap="round" stroke-width="2.2"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.5"/><path d="M5 11C5 14.866 8.134 18 12 18C15.866 18 19 14.866 19 11M12 18V21" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3.5" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="10" r="1.6" stroke="currentColor" stroke-width="1.5"/><path d="M4 18L9 13L13 17L16 14L20 18" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20L5.4 16A8 8 0 1 1 8.2 18.7L4 20Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>',
 };
 
 let cfg = await window.zik.settings();
+// the installer's checklist (src-tauri/windows/installer.nsi): an unticked shortcut is cleared, a ticked one gets its default back
+try {
+  const ip = JSON.parse((await window.__TAURI__.core.invoke('install_prefs')) || 'null');
+  if (ip) {
+    const k = { ...cfg.keys };
+    k.webp = ip.webp ? k.webp || 'Shift+Klik' : ''; k.voice = ip.voice ? k.voice || 'Ctrl+Alt+Z' : '';
+    window.zik.set({ keys: k }); cfg = await window.zik.settings();
+  }
+} catch (e) { console.error('install prefs', e); }
 const m = Mascot.create({ size: cfg.size, floor: 4, fps: 30, idleFps: 24, sleepAfter: 60000, gravity: cfg.gravity, draggable: cfg.drag, followPointer: cfg.follow,
   onTap: () => { if (thirsty) { const ml = cfg.water.cup; drink(ml); thanks(ml); } },   // tap after a reminder = I drank
   onPet: () => sulk(),   // petting while it's mad about water → sulky, not love
@@ -123,10 +140,10 @@ isleList.addEventListener('click', (e) => {
   panel.style.left = r.left + r.width / 2 - panel.offsetWidth / 2 + 'px'; panel.style.top = r.top + 2.4 * cfg.lyricSize + 10 + 'px'; fitPanel();
 });
 
-let pos = 0, at = 0, playing = false, key = '', lines = null, cur = -2, heard = false;
+let pos = 0, at = 0, playing = false, key = '', lines = null, cur = -2, heard = false, keysAt = '', wakeAt = '', wakeAt0 = 0;
 let panel = null, over = false, thirsty = false;   // thirsty = water reminder open
 let big = false, tw = 0;   // rage mode (grown + red); running size-tween rAF id
-const now = () => pos + (playing ? (performance.now() - at) / 1000 : 0) + cfg.offset;
+const now = () => pos + (playing ? (performance.now() - at) / 1000 : 0) + cfg.offset + (cfg.offsets[key] || 0);
 const bpm = () => (heard && cfg.beat ? 0 : 100);   // real beats from audio, else the mascot's internal 100 bpm
 // singing forces the 'sing' mood and drives the mouth with lyric vowels, which hid the angry face while nagging about water →
 // no singing while a reminder is open; every sing call goes through here
@@ -143,6 +160,8 @@ function apply(c) {
   resing();
   zl.hidden = !c.lyrics; zl.style.display = c.handLyrics ? 'none' : '';   // tulisan tangan menggantikan panel; pulau dinamis tetap memakai liriknya
 zl.classList.toggle('solo', !c.context); document.documentElement.style.setProperty('--ls', c.lyricSize + 'px'); setIsle(true); cur = -2;
+  if (wakeAt !== (wakeAt = c.wake + '|' + !!(c.aiKeys.groq || c.aiKeys.openai)) && wakeAt0++) wakeLoop();
+  if (JSON.stringify(c.keys) !== keysAt) window.zik.triggers().catch(() => {}), keysAt = JSON.stringify(c.keys);
   if (c.focusUntil !== focusAt) focus(focusAt = c.focusUntil);
   if (c.restUntil !== restAt) rest(restAt = c.restUntil);
   if (panel?.id === 'pWater') renderWater();
@@ -246,7 +265,7 @@ window.zik.onMedia(async (s) => {
 
   const k = s.title ? `${s.title}|${s.artist}` : '';
   if (k === key) return;
-  key = k; window.__TAURI__.event.emit('song');   // src-tauri: forget the old song's tempo
+  key = k; window.zik.song = k; window.__TAURI__.event.emit('song');   // src-tauri: forget the old song's tempo
   show(null); m.lyrics(null); m.sing(false); keyVotes = 0; songDef = ''; m.singMood('', true);
   if (!k) return m.mood('sleepy');
   m.mood('surprised'); say('note', s.title, 2500);
@@ -310,8 +329,12 @@ window.zik.onPanel((name) => {
   if (name === 'size') { $('rng').value = cfg.size; $('rngOut').value = cfg.size + ' px'; $('rngL').value = cfg.lyricSize; $('rngLOut').value = cfg.lyricSize + ' px'; }
   if (name === 'water') renderWater();
   if (name === 'pomo') { renderPomo(); renderSets(); }
+  if (name === 'voice') return voice();   // menu → "Bicara dengan ZIK": no panel, just listen
   if (name === 'chat') refreshModels();
-  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo', chat: 'pChat', char: 'pChar' }[name]));
+  if (name === 'webp') renderWebp();
+  if (name === 'wa') renderWa(true);
+  if (name === 'chat') renderKeys();
+  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo', chat: 'pChat', char: 'pChar', webp: 'pWebp', wa: 'pWa' }[name]));
   if (name === 'chat') $('cIn').focus();
 });
 
@@ -428,11 +451,43 @@ setInterval(() => {
 addEventListener('pointermove', (e) => {
   const h = isle.contains(e.target);   // hovering the island swaps in the pomodoro clock; leaving collapses it
   if (h !== isleHov) { isleHov = h; if (!h) isleBig = false; setIsle(); }
-  if (panel) return;
+  if (panel || !menuEl.hidden) return;   // an open panel / menu keeps the window clickable
   const o = m.el.contains(e.target) || h;   // capture the mouse over the island too, so it can be clicked and dragged
   if (o !== over) window.zik.hover(over = o);
 });
-addEventListener('contextmenu', (e) => { e.preventDefault(); window.zik.menu(); });
+addEventListener('contextmenu', (e) => { e.preventDefault(); window.zik.menu(e.clientX, e.clientY); });
+
+// ---------- right-click menu: squircle card like the panels. Items come from zik.js; submenus open on hover ----------
+const menuEl = document.createElement('div'); menuEl.className = 'zm'; menuEl.hidden = true; document.body.append(menuEl);
+function closeMenu() { if (menuEl.hidden) return; menuEl.hidden = true; window.zik.hover(over = false); }
+function buildMenu(items, parent) {
+  for (const it of items) {
+    if (it.item === 'Separator') { parent.append(document.createElement('hr')); continue; }
+    if (it.media) {   // prev / play-pause / next for the player the lyrics follow (src-tauri media_ctl)
+      const row = document.createElement('div'); row.className = 'mr';
+      row.innerHTML = [['prev', 'Lagu sebelumnya', 'prev'], ['toggle', playing ? 'Jeda' : 'Putar', playing ? 'pause' : 'play'], ['next', 'Lagu berikutnya', 'next']]
+        .map(([a, l, i]) => `<button type="button" data-a="${a}" aria-label="${l}" title="${l}">${ICON[i]}</button>`).join('');
+      row.onclick = (e) => { const a = e.target.closest('button')?.dataset.a; if (a) { closeMenu(); window.zik.media(a).catch(() => {}); } };
+      parent.append(row); continue;
+    }
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'mi';
+    b.innerHTML = '<i></i><span></span><em></em>'; b.children[1].textContent = it.text;   // textContent: labels may carry a song's text
+    if (it.checked) b.firstChild.textContent = '✓';
+    if (it.items) { b.classList.add('sub'); b.children[2].textContent = '›'; const sub = document.createElement('div'); sub.className = 'zm sm'; buildMenu(it.items, sub); b.append(sub); }
+    else b.onclick = () => { closeMenu(); it.action?.(); };
+    parent.append(b);
+  }
+}
+window.zik.onMenu((items, x, y) => {
+  closePanel(); menuEl.replaceChildren(); buildMenu(items, menuEl); menuEl.hidden = false;
+  const w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+  menuEl.classList.toggle('flip', x + w + 190 > innerWidth);   // submenus open to the left near the right edge
+  menuEl.style.left = clampN(x, 8, innerWidth - w - 8) + 'px'; menuEl.style.top = clampN(y, 8, innerHeight - h - 8) + 'px';
+  window.zik.hover(over = true);
+});
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+addEventListener('pointerdown', (e) => { if (!menuEl.hidden && !menuEl.contains(e.target)) closeMenu(); });
+addEventListener('blur', closeMenu);
 
 // ---------- characters: a CSS filter recolours the blue fur (the rage-mode trick), ears sit behind the body, and a
 // picked image replaces the body altogether (index.html hides everything else while .img is set) ----------
@@ -497,8 +552,8 @@ function getAsk() {   // a new conversation whenever provider / model / key chan
   const p = prov(), k = [p.id, p.model, p.key].join('|');
   if (k !== askFor) {
     askFor = k;
-    ask = createAI({ windows: win, provider: p, stream, shell,
-      confirm: (cmd) => cfg.aiAuto || new Promise((res) => {
+    ask = createAI({ windows: win, provider: p, stream, shell, tools: () => [MUSIC, ...(waState === 'open' ? WA_TOOLS : [])], call: aiTool,
+      confirm: (cmd, always) => (cfg.aiAuto && !always) || new Promise((res) => {
         const el = line('ask', cmd); el.append(document.createElement('br'));
         for (const [label, ok] of [['Jalankan', true], ['Tolak', false]]) {
           const b = el.appendChild(document.createElement('button')); b.type = 'button'; b.textContent = label;
@@ -577,20 +632,244 @@ $('cPullGo').onclick = async () => {
 };
 
 let busy = false;
-$('cForm').onsubmit = async (e) => {
+$('cForm').onsubmit = (e) => {
   e.preventDefault();
-  const text = $('cIn').value.trim(), ps = [];
+  const text = $('cIn').value.trim();
   if (!text || busy) return;
   if (!cfg.aiModel) return stat('Pilih model dulu.');
-  busy = true; $('cIn').value = ''; line('me', text); m.wake(); m.lookDir(.6, -.8);   // glances up: thinking
+  $('cIn').value = ''; sendToAI(text);
+};
+async function sendToAI(text, byVoice) {
+  const ps = [];
+  busy = true; line('me', text); m.wake(); m.lookDir(.6, -.8);   // glances up: thinking
   try {
     const reply = await getAsk()(text, (step, t) => { if (!t) return; (ps[step] ||= line('ai', '')).textContent = t; cLog.scrollTop = cLog.scrollHeight; m.vowel('aiueo'[t.length % 5], 300); });
     m.mood('happy', 1500);
     if (panel?.id !== 'pChat' && reply) m.say(reply.slice(0, 160), 7000);
+    if (reply && (byVoice || cfg.speak)) speakOut(reply);
   } catch (err) { line('err', String(err.message || err)); refreshModels(); }
   busy = false;
-};
+}
 m.el.addEventListener('dblclick', () => window.zik.panel('chat'));
+
+// the AI's extra tools: music and WhatsApp (the sidecar's tool names are the wa_* names without the prefix)
+async function aiTool(name, a) {
+  if (name === 'music_control') {
+    const act = { play_pause: 'toggle', next: 'next', prev: 'prev' }[a.action];
+    if (!act) throw new Error('action harus play_pause, next, atau prev');
+    await window.zik.media(act); return 'ok';
+  }
+  if (name.startsWith('wa_')) return T.invoke('wa_call', { tool: name.slice(3), args: a });
+  throw new Error('alat tidak dikenal');
+}
+
+// ---------- voice: Windows speech recognition (src-tauri voice.rs) → the same path as typing ----------
+let listening = false, speaking = false, spoken = false;   // spoken = the current request came by voice
+// Read text aloud. A Windows voice of the chosen language when one is installed; otherwise (most PCs have no Indonesian voice)
+// Google Translate's speech endpoint, fetched by src-tauri in pieces of <= 190 characters. The wake loop ignores the mic meanwhile,
+// or ZIK would hear itself.
+// ponytail: that endpoint is unofficial and may change or rate-limit; the fallback is the default Windows voice. Installing the
+// language's voice (Windows Settings → Time & language → Speech) makes this fully local.
+let speakN = 0, speakAudio = null;
+function stopSpeak() { speakN++; speaking = false; window.speechSynthesis?.cancel(); if (speakAudio) { speakAudio.pause(); speakAudio = null; } }
+const pieces = (t, n = 190) => t.match(new RegExp(`[\\s\\S]{1,${n}}(?=\\s|$)|[\\s\\S]{1,${n}}`, 'g')).map((x) => x.trim()).filter(Boolean);
+const windowsVoice = (text, v) => new Promise((res) => {
+  const u = new SpeechSynthesisUtterance(text); if (v) u.voice = v; u.lang = v ? v.lang : cfg.voiceLang; u.rate = 1.05; u.onend = u.onerror = res;
+  u.onboundary = () => m.vowel('aiueo'[Math.floor(Math.random() * 5)], 160); speechSynthesis.speak(u);
+});
+async function speakOut(text) {
+  stopSpeak(); if (!text) return;
+  const my = speakN, lang = cfg.voiceLang, vs = window.speechSynthesis?.getVoices() || [];
+  const v = vs.find((x) => x.lang === lang) || vs.find((x) => x.lang.slice(0, 2) === lang.slice(0, 2));
+  text = text.slice(0, 1200); speaking = true;
+  const mouth = setInterval(() => m.vowel('aiueo'[Math.floor(Math.random() * 5)], 170), 180);   // the mouth moves while it talks
+  try {
+    if (v) await windowsVoice(text, v);
+    else for (const part of pieces(text)) {
+      if (my !== speakN) break;
+      const mp3 = await T.invoke('http_bytes', { url: `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang.slice(0, 2)}&q=${encodeURIComponent(part)}`, headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (my !== speakN) break;
+      const a = speakAudio = new Audio(URL.createObjectURL(new Blob([mp3], { type: 'audio/mpeg' })));
+      await new Promise((res, rej) => { a.onended = a.onpause = res; a.onerror = () => rej(new Error('audio')); a.play().catch(rej); });
+      URL.revokeObjectURL(a.src);
+    }
+  } catch (e) { console.warn('tts', e); if (my === speakN && window.speechSynthesis) await windowsVoice(text, null); }
+  clearInterval(mouth);
+  if (my === speakN) speaking = false;
+}
+window.speechSynthesis?.getVoices();   // the list loads asynchronously: ask early
+// Whisper (Groq or OpenAI, whichever has a key in the chat settings) understands Indonesian; Windows' own recognizer has no Indonesian
+// and fails on many PCs, so it is only the fallback. The mic is recorded here, then src-tauri posts it (the WebView can't: CORS).
+const STT = { groq: { url: 'https://api.groq.com/openai/v1/audio/transcriptions', model: 'whisper-large-v3-turbo' }, openai: { url: 'https://api.openai.com/v1/audio/transcriptions', model: 'whisper-1' } };
+// → webm Blob, or null when nobody spoke. Stops `end` ms after the speech ends (`max` in all; `idle` ms of silence = give up).
+// `keep` = an already-open mic stream that stays open afterwards (the wake-word loop)
+async function record({ keep, idle = 7000, end = 1200, max = 20000 } = {}) {
+  const stream = keep || await navigator.mediaDevices.getUserMedia({ audio: true }), ac = new AudioContext(), an = ac.createAnalyser(), buf = new Float32Array(1024);
+  an.fftSize = 1024; ac.createMediaStreamSource(stream).connect(an);
+  const rec = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' }), chunks = []; rec.ondataavailable = (e) => chunks.push(e.data); rec.start();
+  let spoke = false, floor = 0, n = 0; const t0 = performance.now(); let last = t0;
+  await new Promise((done) => {
+    const iv = setInterval(() => {
+      an.getFloatTimeDomainData(buf); const rms = Math.sqrt(buf.reduce((x, v) => x + v * v, 0) / buf.length), now = performance.now();
+      if (n < 5) floor = Math.max(floor, rms), n++;   // first 0.4 s = room noise
+      else if (rms > Math.max(.018, floor * 2.5)) { spoke = true; last = now; }
+      if ((spoke && now - last > end) || (!spoke && now - t0 > idle) || now - t0 > max) { clearInterval(iv); done(); }
+    }, 80);
+  });
+  await new Promise((r) => { rec.onstop = r; rec.stop(); });
+  if (!keep) stream.getTracks().forEach((t) => t.stop());
+  ac.close();
+  return spoke ? new Blob(chunks, { type: 'audio/webm' }) : null;
+}
+async function hear() {
+  const id = Object.keys(STT).find((k) => cfg.aiKeys[k]);
+  if (!id) return T.invoke('listen', { lang: cfg.voiceLang });   // no key: Windows' recognizer
+  const blob = await record(); if (!blob) return '';
+  say('mic', 'Mengenali…', 15000);
+  return whisper(id, blob);
+}
+// prompt = spelling hint, so the name comes back as "Zik" / "Zikri" rather than "Sick" or "Zig"
+async function whisper(id, blob, prompt = '') {
+  const e = encodeURIComponent;
+  return T.invoke('transcribe', new Uint8Array(await blob.arrayBuffer()), { headers: { url: e(STT[id].url), key: e(cfg.aiKeys[id]), model: e(STT[id].model), lang: e(cfg.voiceLang.split('-')[0]), prompt: e(prompt) } });
+}
+
+// ---------- wake word ("zik …" / "zikri …", like "ok Google"): the mic stays open; every stretch of speech is sent to Whisper and
+// acted on only when it starts with the name. Off unless switched on in the chat panel (everything said near the PC goes to the
+// speech provider while it is on).
+// ponytail: cloud transcription of all speech, at most one request per 4 s (Groq's free tier allows 20/min, 2000/day; music from the
+// speakers counts as speech). A local keyword spotter (openWakeWord / Porcupine) is the upgrade if the quota or privacy bites.
+let wakeStream = null, wakeRun = 0;
+async function wakeLoop() {
+  const my = ++wakeRun; let lastReq = 0, pauseUntil = 0;
+  if (wakeStream) { wakeStream.getTracks().forEach((t) => t.stop()); wakeStream = null; }
+  const id = Object.keys(STT).find((k) => cfg.aiKeys[k]);
+  $('vWake').checked = cfg.wake; $('vWakeNote').hidden = !cfg.wake || !!id;
+  if (!cfg.wake || !id) return;
+  try { wakeStream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { return line('err', 'Mikrofon tidak bisa dibuka: ' + (e.message || e)); }
+  const stream = wakeStream;
+  while (my === wakeRun) {
+    const blob = await record({ keep: stream, idle: 4000, end: 900, max: 10000 }).catch(() => null);
+    if (my !== wakeRun) break;
+    const now = Date.now();
+    if (!blob || blob.size < 6000 || listening || busy || speaking || now < pauseUntil || now - lastReq < 4000) continue;   // nothing said / too short / ZIK is busy / rate limit
+    lastReq = now;
+    let cmd = null;
+    try { const heardText = await whisper(id, blob); window.__wakeLog = [...(window.__wakeLog || []), heardText].slice(-20); cmd = wakeSplit(heardText); }   // no spelling prompt: Whisper echoes it back on unclear audio (false wake-ups)
+    catch (e) { if (/429|rate/i.test(String(e))) pauseUntil = Date.now() + 60000; console.warn('wake', e); continue; }
+    if (cmd === null || my !== wakeRun || listening || busy) continue;
+    m.wake(); m.jump();
+    stopSpeak();
+    if (cmd.length >= 3) { if (cfg.aiModel) await sendToAI(cmd, true); else m.say('Pilih model AI dulu di obrolan ya', 4000); }
+    else await voice();   // just the name: "Ya?" → listen for the command
+  }
+  if (stream !== wakeStream) stream.getTracks().forEach((t) => t.stop());
+}
+$('vWake').onchange = (e) => window.zik.set({ wake: e.target.checked });
+$('vSpeak').checked = cfg.speak; $('vSpeak').onchange = (e) => { window.zik.set({ speak: e.target.checked }); if (!e.target.checked) stopSpeak(); };
+window.__voice = { record, hear, speakOut };   // debug (DevTools)
+async function voice() {
+  if (listening || busy) return;
+  if (!cfg.aiModel) return m.say('Pilih model AI dulu di obrolan ya', 4000);
+  stopSpeak(); listening = true; $('cMic').classList.add('rec'); m.wake(); m.lookDir(.6, -.8); say('mic', 'Aku dengerin…', 9000);
+  try {
+    const t = (await hear()).replace(/^\s*zik\b[\s,.:!]*/i, '').trim();   // "zik, download…" → "download…"
+    if (t) await sendToAI(t, true); else say('mic', 'Nggak kedengeran…', 2500);
+  } catch (e) { const t = String(e.message || e); line('err', t); m.say(t.slice(0, 160), 7000); }
+  listening = false; $('cMic').classList.remove('rec');
+}
+$('cMic').onclick = voice;
+wakeLoop();
+$('vLang').value = cfg.voiceLang; $('vLang').onchange = (e) => window.zik.set({ voiceLang: e.target.value });
+
+// ---------- global shortcuts (src-tauri keys.rs polls them): click the button, then press the combination or modifier + click ----------
+const KEY_LABEL = { webp: ['wpKey', 'wpKeyOff'], voice: ['vKey', 'vKeyOff'] };
+function renderKeys() { for (const [id, [b, off]] of Object.entries(KEY_LABEL)) { $(b).textContent = (cfg.keys[id] || 'Mati').replaceAll('+', ' + '); $(off).hidden = !cfg.keys[id]; } }
+const modsOf = (e) => [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean);
+function captureKey(id) {
+  const btn = $(KEY_LABEL[id][0]); btn.textContent = 'Tekan kombinasi… (Esc batal)';
+  const done = (spec) => { removeEventListener('keydown', kd, true); removeEventListener('pointerdown', pd, true); if (spec) window.zik.set({ keys: { ...cfg.keys, [id]: spec } }); renderKeys(); };
+  const kd = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape') return done();
+    const k = /^Key./.test(e.code) ? e.code.slice(3) : /^Digit./.test(e.code) ? e.code.slice(5) : /^F\d+$/.test(e.code) || ['Space', 'Enter', 'Tab'].includes(e.code) ? e.code : null;
+    if (!k) return;   // a bare modifier so far, or a key the shortcut engine doesn't know
+    if (!modsOf(e).length && !/^F\d+$/.test(k)) return (btn.textContent = 'Tambahkan Ctrl / Alt / Shift…');   // a bare letter would fire while typing
+    done([...modsOf(e), k].join('+'));
+  };
+  const pd = (e) => { if (!modsOf(e).length) return; e.preventDefault(); e.stopPropagation(); done([...modsOf(e), 'Klik'].join('+')); };   // modifier + click
+  addEventListener('keydown', kd, true); addEventListener('pointerdown', pd, true);
+}
+for (const [id, [b, off]] of Object.entries(KEY_LABEL)) {
+  $(b).onclick = () => captureKey(id);
+  $(off).onclick = () => { window.zik.set({ keys: { ...cfg.keys, [id]: '' } }); renderKeys(); };
+}
+window.zik.onTrigger(({ id, hwnd }) => {
+  if (id === 'voice') voice();
+  if (id === 'webp') webpSelection(hwnd);
+});
+
+// ---------- WebP: select images in Explorer / on the desktop, press the shortcut (default Shift + Klik), or use "Pilih gambar…" ----------
+let wpBusy = false;
+const lastLine = (t) => String(t).trim().split(/\r?\n/).pop();
+const wpStat = (t) => { $('wpStat').textContent = t; fitPanel(); };
+async function webpFiles(files) {
+  const imgs = files.filter((f) => WebP.IMG.test(f));
+  if (!imgs.length || wpBusy) return;
+  wpBusy = true; m.wake(); wpStat(`Mengompres ${imgs.length} gambar…`); say('image', `Mengompres ${imgs.length} gambar…`, 60000);
+  try {
+    const r = await WebP.convert(imgs, cfg.webp, {
+      read: (path) => T.invoke('read_file', { path }),
+      write: (path, bytes) => T.invoke('write_new_file', bytes, { headers: { path: encodeURIComponent(path) } }),
+      trash: (path) => shell(WebP.trashScript(path)),
+    }, (i, n) => { if (n > 1) wpStat(`Mengompres ${i + 1} / ${n}…`); });
+    const t = WebP.summary(r); wpStat([t, ...r.failed.slice(0, 3)].join('\n')); m.mood('happy', 1500); say('image', t, 7000);
+  } catch (e) { wpStat('Gagal: ' + (e.message || e)); m.say('Gagal mengompres: ' + (e.message || e), 5000); }
+  wpBusy = false;
+}
+async function webpSelection(hwnd) {
+  await new Promise((r) => setTimeout(r, 350));   // Explorer updates its selection a moment after the click
+  let files = []; try { files = JSON.parse(lastLine(await shell(WebP.selectionScript(hwnd), 20))); } catch {}
+  webpFiles(files);
+}
+function renderWebp() {
+  $('wpQ').value = cfg.webp.quality; $('wpQOut').value = cfg.webp.quality; $('wpDel').checked = cfg.webp.del; renderKeys();
+}
+$('wpQ').oninput = (e) => ($('wpQOut').value = e.target.value);
+$('wpQ').onchange = (e) => window.zik.set({ webp: { ...cfg.webp, quality: +e.target.value } });
+$('wpDel').onchange = (e) => window.zik.set({ webp: { ...cfg.webp, del: e.target.checked } });
+$('wpPick').onclick = async () => {
+  try { webpFiles(JSON.parse(lastLine(await shell(WebP.pickScript, 300)))); } catch (e) { wpStat('Gagal membuka pemilih file: ' + (e.message || e)); }
+};
+
+// ---------- WhatsApp (src-tauri wa.rs → wa/rpc.js): QR login here; the AI gets wa_* tools while it is linked ----------
+let waState = 'idle', waQr = '', waUser = '';
+const WA_TEXT = { idle: 'Belum terhubung.', connecting: 'Menyambung…', open: 'Terhubung', loggedout: 'Sesi berakhir (perangkat dilepas dari HP). Hubungkan lagi.', stopped: 'Layanan WhatsApp berhenti. Hubungkan lagi.' };
+function renderWa(poll) {
+  const qr = waState === 'connecting' && waQr;
+  $('waQr').hidden = !qr; if (qr) $('waQr').src = waQr;
+  $('waStat').textContent = (WA_TEXT[waState] || waState) + (waState === 'open' && waUser ? ` (${waUser.split(/[:@]/)[0]})` : '')
+    + (qr ? '\nDi HP: WhatsApp → Perangkat tertaut → Tautkan perangkat, lalu pindai kode ini.' : '');
+  $('waGo').hidden = waState === 'open' || waState === 'connecting'; $('waOut').hidden = waState !== 'open';
+  fitPanel();
+  if (poll) T.invoke('wa_call', { tool: 'status' }).then((t) => { const s = t.split(' ')[0]; if (s !== waState) { waState = s; waUser = /\((.+)\)/.exec(t)?.[1] || ''; renderWa(); } })
+    .catch((e) => { $('waStat').textContent = String(e); });   // also starts the sidecar the first time
+}
+window.zik.onWa((e) => {
+  if (e.ev === 'qr') waQr = e.qr;
+  if (e.ev === 'status') {
+    const was = waState; waState = e.state; waUser = e.user || ''; if (e.state !== 'connecting') waQr = '';
+    if (waState === 'open' && was !== 'open') say('chat', 'WhatsApp terhubung!', 3000);
+  }
+  if (panel?.id === 'pWa') renderWa();
+});
+$('waGo').onclick = () => {
+  waQr = ''; waState = 'connecting'; renderWa();
+  // the sidecar answers with its real state (it may already be linked and open: then no further event comes)
+  T.invoke('wa_call', { tool: 'link' }).then((t) => { if (t === 'open') { waState = 'open'; renderWa(true); } })
+    .catch((e) => { waState = 'idle'; renderWa(); $('waStat').textContent = String(e); });
+};
+$('waOut').onclick = () => T.invoke('wa_call', { tool: 'logout' }).catch((e) => ($('waStat').textContent = String(e)));
 
 // tulisan tangan: teks hitam di atas latar terang, putih di atas latar gelap. src-tauri membaca piksel layar tepat di
 // atas & bawah tulisan (WebView tak bisa melihat desktop di balik jendela transparan). Ambang beda = tidak berkedip.

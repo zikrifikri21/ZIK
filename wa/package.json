@@ -1,0 +1,11 @@
+{
+  "name": "zik-wa",
+  "private": true,
+  "type": "module",
+  "description": "ZIK's WhatsApp sidecar (Baileys). Compiled to one exe by build.mjs",
+  "dependencies": {
+    "baileys": "^7.0.0-rc14",
+    "pino": "^10.4.0",
+    "qrcode": "^1.5.4"
+  }
+}

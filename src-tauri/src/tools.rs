@@ -16,8 +16,69 @@ use tauri::ipc::Channel;
 const TIMEOUT: u64 = 120;   // default seconds a command may run before its shell is stopped
 
 /// Both commands block for a long time (a CPU-only model, a slow script): keep them off Tauri's async workers.
-async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+pub(crate) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
     tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+/// Raw bytes of a file (images for the WebP converter), no JSON detour.
+#[tauri::command]
+pub async fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
+    blocking(move || fs::read(&path).map(tauri::ipc::Response::new).map_err(|e| format!("{path}: {e}"))).await
+}
+
+/// Save the request body to a NEW file (header `path`, percent-encoded). Never overwrites: an existing file is an error
+/// the UI reads as "already converted".
+#[tauri::command]
+pub async fn write_new_file(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else { return Err("tidak ada data".into()) };
+    let path = request.headers().get("path").and_then(|h| h.to_str().ok()).map(unescape).ok_or("tidak ada path")?;
+    let data = data.clone();
+    blocking(move || {
+        use std::io::{ErrorKind, Write};
+        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(&path)
+            .map_err(|e| if e.kind() == ErrorKind::AlreadyExists { "exists".to_string() } else { format!("{path}: {e}") })?;
+        f.write_all(&data).map_err(|e| e.to_string())
+    }).await
+}
+
+/// Speech → text through an OpenAI-style transcription endpoint (Groq / OpenAI Whisper). The request body is the audio (webm);
+/// headers (percent-encoded) carry url, key, model, lang. Done here because the WebView can't post to these APIs (CORS).
+#[tauri::command]
+pub async fn transcribe(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(audio) = request.body() else { return Err("tidak ada audio".into()) };
+    let h = |k: &str| request.headers().get(k).and_then(|v| v.to_str().ok()).map(unescape).unwrap_or_default();
+    let (url, key, model, lang, prompt) = (h("url"), h("key"), h("model"), h("lang"), h("prompt"));
+    let audio = audio.clone();
+    blocking(move || {
+        let b = "----zikaudio7f3a";
+        let mut body: Vec<u8> = Vec::new();
+        let mut field = |n: &str, v: &str| body.extend_from_slice(format!("--{b}\r\nContent-Disposition: form-data; name=\"{n}\"\r\n\r\n{v}\r\n").as_bytes());
+        field("model", &model);
+        field("response_format", "json");
+        if !lang.is_empty() { field("language", &lang); }
+        if !prompt.is_empty() { field("prompt", &prompt); }
+        body.extend_from_slice(format!("--{b}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"ucapan.webm\"\r\nContent-Type: audio/webm\r\n\r\n").as_bytes());
+        body.extend_from_slice(&audio);
+        body.extend_from_slice(format!("\r\n--{b}--\r\n").as_bytes());
+        let r = agent().post(&url).set("Authorization", &format!("Bearer {key}")).set("Content-Type", &format!("multipart/form-data; boundary={b}"))
+            .send_bytes(&body).map_err(|e| match e {
+                ureq::Error::Status(code, r) => format!("HTTP {code}: {}", r.into_string().unwrap_or_default()),
+                e => e.to_string(),
+            })?;
+        let j: Value = r.into_json().map_err(|e| e.to_string())?;
+        Ok(j["text"].as_str().unwrap_or("").trim().to_string())
+    }).await
+}
+
+fn unescape(s: &str) -> String {   // %XX → byte (encodeURIComponent on the JS side), UTF-8 after
+    let (b, mut out, mut i) = (s.as_bytes(), Vec::new(), 0);
+    while i < b.len() {
+        match (b[i], b.get(i + 1..i + 3).and_then(|h| std::str::from_utf8(h).ok()).and_then(|h| u8::from_str_radix(h, 16).ok())) {
+            (b'%', Some(v)) => { out.push(v); i += 3 }
+            (c, _) => { out.push(c); i += 1 }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 fn agent() -> &'static ureq::Agent {
@@ -42,6 +103,16 @@ fn send(req: ureq::Request, headers: &HashMap<String, String>, body: Option<Valu
 #[tauri::command]
 pub async fn http_get(url: String, headers: HashMap<String, String>) -> Result<String, String> {
     blocking(move || send(agent().get(&url), &headers, None)?.into_string().map_err(|e| e.to_string())).await
+}
+
+/// GET → raw bytes (speech audio), at most 5 MB.
+#[tauri::command]
+pub async fn http_bytes(url: String, headers: HashMap<String, String>) -> Result<tauri::ipc::Response, String> {
+    blocking(move || {
+        let mut b = Vec::new();
+        send(agent().get(&url), &headers, None)?.into_reader().take(5_000_000).read_to_end(&mut b).map_err(|e| e.to_string())?;
+        Ok(tauri::ipc::Response::new(b))
+    }).await
 }
 
 /// POST JSON and pass the response on line by line while it arrives (Ollama NDJSON, SSE `data:` lines), then "" as

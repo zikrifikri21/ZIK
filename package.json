@@ -7,7 +7,7 @@
     "start": "tauri dev",
     "dist": "tauri build",
     "tauri": "tauri",
-    "test": "node ui/emotion.js && node ui/lyrics.js && node ui/ai.js"
+    "test": "node ui/emotion.js && node ui/lyrics.js && node ui/ai.js && node ui/webp.js"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4"

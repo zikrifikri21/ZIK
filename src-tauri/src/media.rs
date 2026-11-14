@@ -21,8 +21,8 @@ pub fn spawn(w: WebviewWindow) {
     });
 }
 
-fn read(mgr: &Manager) -> windows::core::Result<Value> {
-    // "current" can be a short WhatsApp/notification clip: prefer a playing session, then the longest one
+/// "current" can be a short WhatsApp/notification clip: prefer a playing session, then the longest one
+fn best(mgr: &Manager) -> windows::core::Result<Option<(bool, Session)>> {
     let sessions = mgr.GetSessions()?;
     let mut best: Option<(bool, i64, Session)> = None;
     for i in 0..sessions.Size()? {
@@ -33,7 +33,27 @@ fn read(mgr: &Manager) -> windows::core::Result<Value> {
             best = Some((playing, end, s));
         }
     }
-    let Some((playing, _, s)) = best else { return Ok(json!({})) };
+    Ok(best.map(|(p, _, s)| (p, s)))
+}
+
+/// Pause/play, next or previous on the same session the lyrics follow. "toggle" | "next" | "prev".
+pub async fn control(action: String) -> Result<bool, String> {
+    crate::tools::blocking(move || {
+        unsafe { let _ = RoInitialize(RO_INIT_MULTITHREADED); }
+        let e = |e: windows::core::Error| e.message();
+        let mgr = Manager::RequestAsync().and_then(|op| op.get()).map_err(e)?;
+        let Some((_, s)) = best(&mgr).map_err(e)? else { return Err("Tidak ada pemutar musik yang aktif".into()) };
+        match action.as_str() {
+            "toggle" => s.TryTogglePlayPauseAsync(),
+            "next" => s.TrySkipNextAsync(),
+            "prev" => s.TrySkipPreviousAsync(),
+            a => return Err(format!("aksi tidak dikenal: {a}")),
+        }.and_then(|op| op.get()).map_err(e)
+    }).await
+}
+
+fn read(mgr: &Manager) -> windows::core::Result<Value> {
+    let Some((playing, s)) = best(mgr)? else { return Ok(json!({})) };
     let p = s.TryGetMediaPropertiesAsync()?.get()?;
     let tl = s.GetTimelineProperties()?;
     let mut pos = tl.Position()?.Duration as f64 / 1e7;   // 100 ns ticks

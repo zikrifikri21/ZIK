@@ -28,6 +28,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - uses: oven-sh/setup-bun@v2   # compiles the WhatsApp sidecar (wa/build.mjs, run by tauri's beforeBuildCommand)
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         env:
