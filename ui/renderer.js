@@ -855,6 +855,7 @@ function renderWa(poll) {
   if (poll) T.invoke('wa_call', { tool: 'status' }).then((t) => { const s = t.split(' ')[0]; if (s !== waState) { waState = s; waUser = /\((.+)\)/.exec(t)?.[1] || ''; renderWa(); } })
     .catch((e) => { $('waStat').textContent = String(e); });   // also starts the sidecar the first time
 }
+window.zik.onUpdate((v) => say('timer', `Ada versi baru ${v}, aku update dulu ya~`, 5000));
 window.zik.onWa((e) => {
   if (e.ev === 'qr') waQr = e.qr;
   if (e.ev === 'status') {

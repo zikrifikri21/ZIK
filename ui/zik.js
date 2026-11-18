@@ -103,6 +103,7 @@
     lyrics: (m) => window.lyricsFind(m, (url) => T.core.invoke('http_get', { url, headers: { 'User-Agent': 'zik-mascot/1.0' } })),
     media,
     onMenu: (fn) => (menuUI = fn),
+    onUpdate: (fn) => listen('update', (e) => fn(e.payload)),   // version string, just before the installer runs
     onWa: (fn) => listen('wa', (e) => fn(e.payload)),
     onTrigger: (fn) => listen('trigger', (e) => fn(e.payload)),   // { id, hwnd } from a global shortcut (keys.rs)
     triggers: () => T.core.invoke('set_triggers', { list: Object.entries(cfg.keys) }),

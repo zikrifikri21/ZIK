@@ -20,6 +20,7 @@ mod wa;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(wa::Wa::default())
         .manage(Triggers::default())
         .invoke_handler(tauri::generate_handler![tools::http_get, tools::http_bytes, tools::http_stream, tools::run_command, tools::read_file, tools::write_new_file, tools::transcribe,
@@ -41,6 +42,7 @@ fn main() {
                 keys::spawn(win.clone(), app.state::<Triggers>().0.clone());
             }
             wa::autostart(app.handle());
+            if !cfg!(debug_assertions) { update(app.handle().clone()); }
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -124,6 +126,21 @@ fn cursor_feed(w: WebviewWindow) {
                 last = xy;
                 let _ = w.emit("cursor", [xy.0, xy.1]);
             }
+        }
+    });
+}
+
+/// Checks GitHub Releases once at startup; a newer signed build is downloaded and installed (Windows relaunches via the
+/// installer, macOS via restart()). The UI gets an `update` event with the version so the mascot can say so first.
+/// ponytail: no prompt, no retry timer; add a confirm bubble or a periodic check if users ask for control.
+fn update(app: tauri::AppHandle) {
+    use tauri::Emitter;
+    use tauri_plugin_updater::UpdaterExt;
+    tauri::async_runtime::spawn(async move {
+        let Ok(updater) = app.updater() else { return };
+        if let Ok(Some(u)) = updater.check().await {
+            let _ = app.emit("update", &u.version);
+            if u.download_and_install(|_, _| {}, || {}).await.is_ok() { app.restart(); }
         }
     });
 }
