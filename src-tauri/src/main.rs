@@ -14,6 +14,8 @@ mod secret;
 #[cfg(windows)]
 mod media;
 #[cfg(windows)]
+mod notif;
+#[cfg(windows)]
 mod voice;
 mod tools;
 mod wa;
@@ -39,6 +41,7 @@ fn main() {
             {
                 media::spawn(win.clone());
                 audio::spawn(win.clone());
+                notif::spawn(win.clone());
                 keys::spawn(win.clone(), app.state::<Triggers>().0.clone());
             }
             wa::autostart(app.handle());

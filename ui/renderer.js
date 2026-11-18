@@ -75,15 +75,17 @@ const isleList = isle.lastChild;
 // priority: hover/expanded → pomodoro timer; song just changed → title; else current lyric line; nothing to sing → timer
 const mmss = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 let isleHov = false, isleBig = false, msg = null;   // msg = { icon, text, until }: song title or a speech line while hiding
+let note = null;   // { text, until }: a Windows notification, shown on the island even while the mascot is on screen
 function setIsle(force) {
-  const away = !!hid?.gone, s = isle.firstChild;
-  m.el.classList.toggle('away', away);   // tick() keeps the stack on-screen, so hide it or it lingers at the edge
+  const gone = !!hid?.gone, nt = !!note && performance.now() < note.until, away = gone || nt, s = isle.firstChild;
+  m.el.classList.toggle('away', gone);   // tick() keeps the stack on-screen, so hide it or it lingers at the edge
   isle.classList.toggle('on', away);
   if (!away) isleBig = false;
   isle.classList.toggle('big', isleBig);
   if (!away) return;
   const l = !zl.hidden && lines && lines[cur], n = cfg.pomo.length, clock = isleHov || isleBig;
-  const [kind, icon, text] = !clock && msg && performance.now() < msg.until ? ['msg', msg.icon, msg.text]
+  const [kind, icon, text] = !clock && nt ? ['msg', ICON.chat, note.text]
+    : !clock && msg && performance.now() < msg.until ? ['msg', msg.icon, msg.text]
     : !clock && l ? ['line', l.text ? '' : ICON.note.repeat(3), l.text]
     : ['time', ICON.timer, `Fokus ${mmss(cfg.focusUntil - Date.now())}${n > 1 ? ` · Sesi ${cfg.pomoIdx + 1}/${n}` : ''}`];
   const k = kind + icon.length + text + isleBig;
@@ -333,8 +335,8 @@ window.zik.onPanel((name) => {
   if (name === 'chat') refreshModels();
   if (name === 'webp') renderWebp();
   if (name === 'wa') renderWa(true);
-  if (name === 'chat') renderKeys();
-  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo', chat: 'pChat', char: 'pChar', webp: 'pWebp', wa: 'pWa' }[name]));
+  if (name === 'chat' || name === 'music') renderKeys();
+  openPanel($({ size: 'pSize', water: 'pWater', pomo: 'pPomo', chat: 'pChat', char: 'pChar', webp: 'pWebp', wa: 'pWa', music: 'pMusic' }[name]));
   if (name === 'chat') $('cIn').focus();
 });
 
@@ -783,7 +785,7 @@ wakeLoop();
 $('vLang').value = cfg.voiceLang; $('vLang').onchange = (e) => window.zik.set({ voiceLang: e.target.value });
 
 // ---------- global shortcuts (src-tauri keys.rs polls them): click the button, then press the combination or modifier + click ----------
-const KEY_LABEL = { webp: ['wpKey', 'wpKeyOff'], voice: ['vKey', 'vKeyOff'] };
+const KEY_LABEL = { webp: ['wpKey', 'wpKeyOff'], voice: ['vKey', 'vKeyOff'], next: ['mnKey', 'mnKeyOff'], prev: ['mpKey', 'mpKeyOff'], play: ['mpaKey', 'mpaKeyOff'] };
 function renderKeys() { for (const [id, [b, off]] of Object.entries(KEY_LABEL)) { $(b).textContent = (cfg.keys[id] || 'Mati').replaceAll('+', ' + '); $(off).hidden = !cfg.keys[id]; } }
 const modsOf = (e) => [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win'].filter(Boolean);
 function captureKey(id) {
@@ -804,9 +806,17 @@ for (const [id, [b, off]] of Object.entries(KEY_LABEL)) {
   $(b).onclick = () => captureKey(id);
   $(off).onclick = () => { window.zik.set({ keys: { ...cfg.keys, [id]: '' } }); renderKeys(); };
 }
+const MEDIA_KEY = { next: 'next', prev: 'prev', play: 'toggle' };   // shortcut id → media_ctl action
 window.zik.onTrigger(({ id, hwnd }) => {
   if (id === 'voice') voice();
   if (id === 'webp') webpSelection(hwnd);
+  if (MEDIA_KEY[id]) window.zik.media(MEDIA_KEY[id]).catch((e) => m.say(String(e).slice(0, 80), 2500));
+});
+// Windows notifications (src-tauri notif.rs) → the island instead of a corner toast
+window.zik.onNotif((n) => {
+  if (!cfg.notif) return;
+  const t = [n.title, n.body].filter(Boolean).join(' — ').replace(/\s+/g, ' ');
+  note = { text: `${n.app} · ${t}`.slice(0, 90), until: performance.now() + 5000 }; setIsle();
 });
 
 // ---------- WebP: select images in Explorer / on the desktop, press the shortcut (default Shift + Klik), or use "Pilih gambar…" ----------

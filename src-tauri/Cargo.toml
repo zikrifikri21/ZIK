@@ -16,7 +16,7 @@ native-tls = "0.2"   # OS TLS stack (schannel on Windows), no bundled crypto
 keyring = { version = "3", default-features = false, features = ["windows-native", "apple-native"] }   # OS keychain for API keys
 
 [target.'cfg(windows)'.dependencies]
-windows = { version = "0.61", features = ["Media_Control", "Media_SpeechRecognition", "Globalization", "Foundation", "Foundation_Collections", "Win32_System_WinRT", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
+windows = { version = "0.61", features = ["ApplicationModel", "UI_Notifications", "UI_Notifications_Management", "Media_Control", "Media_SpeechRecognition", "Globalization", "Foundation", "Foundation_Collections", "Win32_System_WinRT", "Win32_Graphics_Gdi", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging"] }
 cpal = "0.16"
 
 [profile.release]   # small binary
